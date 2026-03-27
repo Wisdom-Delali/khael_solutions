@@ -55,7 +55,7 @@
           </div>
           <div class="col-sm-6">
             <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Assigned To</div>
-            <div>{{ job.assigned_to.get_full_name|default:job.assigned_to.username|default:"—" }}</div>
+            <div>{% if job.assigned_to %}{{ job.assigned_to.get_full_name|default:job.assigned_to.username }}{% else %}—{% endif %}</div>
           </div>
           <div class="col-sm-6">
             <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Start Date</div>
@@ -159,7 +159,7 @@
               <td class="fw-500">GHS {{ p.amount }}</td>
               <td>{{ p.get_payment_method_display }}</td>
               <td class="text-muted">{{ p.reference|default:"—" }}</td>
-              <td class="text-muted">{{ p.recorded_by.get_full_name|default:p.recorded_by.username }}</td>
+              <td class="text-muted">{% if p.recorded_by %}{{ p.recorded_by.get_full_name|default:p.recorded_by.username }}{% else %}—{% endif %}</td>
             </tr>
             {% endfor %}
             <tr style="background:#f8fafc; font-weight:600;">
@@ -239,7 +239,7 @@
               </div>
               {% if update.comment %}<div style="font-size:13px; margin-top:4px;">{{ update.comment }}</div>{% endif %}
               <div class="timeline-meta">
-                {{ update.updated_by.get_full_name|default:update.updated_by.username|default:"System" }}
+                {% if update.updated_by %}{{ update.updated_by.get_full_name|default:update.updated_by.username }}{% else %}System{% endif %}
                 &middot; {{ update.timestamp|date:"d M Y, H:i" }}
               </div>
             </div>

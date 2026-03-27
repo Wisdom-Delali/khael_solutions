@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py test core --verbosity=2)",
+      "Bash(python3 manage.py test core --verbosity=2)",
+      "Bash(py manage.py test core --verbosity=2)",
+      "Read(//c/Users/wudis/Desktop/Python/upsa/**)",
+      "Bash(/c/Users/wudis/Desktop/Python/upsa/.venv/Scripts/python.exe manage.py test core --verbosity=2)",
+      "Bash(grep -E \"Ran [0-9]+ test|OK$|FAILED|ERROR\" \"C:/Users/wudis/AppData/Local/Temp/claude/c--Users-wudis-Desktop-Python-upsa-khael-solutions/84fad0d0-713d-429e-896f-436803193613/tasks/b1mjw3pp0.output\")"
+    ]
+  }
+}
