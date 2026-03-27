@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Purchase #{{ purchase.pk }}{% endblock %}
+{% block topbar_title %}Purchase Detail{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:purchase_list' %}">Purchases</a></li>
+    <li class="breadcrumb-item active">Purchase #{{ purchase.pk }}</li>
+  </ol>
+</nav>
+<div class="page-header">
+  <div><h1>Purchase #{{ purchase.pk }}</h1>
+  <p>{{ purchase.created_at|date:"l, j F Y" }} · Created by {{ purchase.created_by.get_full_name|default:purchase.created_by.username|default:"System" }}</p>
+  </div>
+</div>
+<div class="row g-3 justify-content-center">
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header"><h6>Items Purchased</h6></div>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead><tr><th>Resource</th><th>Quantity</th><th>Unit Cost</th><th>Line Total</th></tr></thead>
+          <tbody>
+            {% for item in purchase.items.all %}
+            <tr>
+              <td>{{ item.resource.title }}</td>
+              <td>{{ item.quantity }} {{ item.resource.unit }}</td>
+              <td>GHS {{ item.unit_cost }}</td>
+              <td class="fw-500">GHS {{ item.line_total }}</td>
+            </tr>
+            {% endfor %}
+            <tr style="background:#f8fafc;">
+              <td colspan="3" class="text-end text-muted fw-600" style="font-size:12px; text-transform:uppercase; letter-spacing:.05em;">Total</td>
+              <td class="fw-700" style="font-size:16px;">GHS {{ purchase.purchase_total }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% if purchase.notes %}
+    <div class="card">
+      <div class="card-header"><h6>Notes</h6></div>
+      <div class="card-body"><p class="mb-0">{{ purchase.notes }}</p></div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Record Usage{% endblock %}
+{% block topbar_title %}Record Resource Usage{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:job_list' %}">Jobs</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'core:job_detail' job.pk %}">{{ job.title|truncatechars:25 }}</a></li>
+    <li class="breadcrumb-item active">Record Usage</li>
+  </ol>
+</nav>
+<div class="page-header">
+  <div>
+    <h1>Record Resource Usage</h1>
+    <p>For job: <strong>{{ job.title }}</strong></p>
+  </div>
+</div>
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header"><h6><i class="bi bi-box-seam me-2 text-muted"></i>Usage Details</h6></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'core:record_usage' job.pk %}">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Resource <span class="text-danger">*</span></label>
+            <select name="resource" class="form-select" required>
+              <option value="">Select a resource...</option>
+              {% for res in resources %}
+              <option value="{{ res.pk }}">{{ res.title }} — {{ res.quantity }} {{ res.unit }} in stock (GHS {{ res.unit_cost }}/{{ res.unit }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Quantity Used <span class="text-danger">*</span></label>
+            <input type="number" name="quantity" class="form-control" step="0.01" min="0.01" placeholder="0.00" required />
+          </div>
+          <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+            <a href="{% url 'core:job_detail' job.pk %}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Record Usage</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

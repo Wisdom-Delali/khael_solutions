@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}{{ action }} Department{% endblock %}
+{% block topbar_title %}{{ action }} Department{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:department_list' %}">Departments</a></li>
+    <li class="breadcrumb-item active">{{ action }}</li>
+  </ol>
+</nav>
+<div class="page-header"><div><h1>{{ action }} Department</h1></div></div>
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header"><h6>Department Details</h6></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Department Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" value="{{ dept.name|default:'' }}" placeholder="e.g. Printing Services" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea name="description" class="form-control" rows="3" placeholder="Brief description of this department's services...">{{ dept.description|default:'' }}</textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Head of Department</label>
+            <select name="hod" class="form-select">
+              <option value="">None</option>
+              {% for mgr in managers %}
+              <option value="{{ mgr.pk }}" {% if dept and dept.hod_id == mgr.pk %}selected{% endif %}>{{ mgr.get_full_name|default:mgr.username }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+            <a href="{% url 'core:department_list' %}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ action }} Department</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

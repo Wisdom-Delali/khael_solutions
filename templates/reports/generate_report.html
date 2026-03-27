@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Generate Report{% endblock %}
+{% block topbar_title %}Generate Report{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:report_list' %}">Reports</a></li>
+    <li class="breadcrumb-item active">Generate</li>
+  </ol>
+</nav>
+<div class="page-header">
+  <div>
+    <h1>Generate AI Report</h1>
+    <p>Select a date range — the system will aggregate operational data and generate a narrative summary via OpenAI</p>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">
+        <h6><i class="bi bi-stars me-2" style="color:var(--amber);"></i>Report Parameters</h6>
+      </div>
+      <div class="card-body">
+
+        <!-- Info box -->
+        <div class="alert alert-info mb-4" style="font-size:13px;">
+          <i class="bi bi-info-circle me-2"></i>
+          The AI will analyse jobs, expenses, resources, purchases, and alerts for the selected period, then write a narrative management summary with recommendations.
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Period Start <span class="text-danger">*</span></label>
+            <input type="date" name="period_start" class="form-control" value="{{ default_start|date:'Y-m-d' }}" required />
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Period End <span class="text-danger">*</span></label>
+            <input type="date" name="period_end" class="form-control" value="{{ default_end|date:'Y-m-d' }}" required />
+          </div>
+          <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+            <a href="{% url 'core:report_list' %}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-stars me-1"></i>Generate Report
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <p class="text-muted mt-3" style="font-size:12px; text-align:center;">
+      <i class="bi bi-clock me-1"></i>Weekly reports are also auto-generated every Monday at 07:00 via the scheduler.
+    </p>
+  </div>
+</div>
+{% endblock %}

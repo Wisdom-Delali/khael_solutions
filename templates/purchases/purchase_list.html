@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Purchases{% endblock %}
+{% block topbar_title %}Purchases{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'core:purchase_create' %}" class="btn btn-sm btn-primary">
+  <i class="bi bi-plus-lg me-1"></i>New Purchase
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div><h1>Purchases</h1><p>Track all resource procurement and stock updates</p></div>
+  <div class="page-actions">
+    <a href="{% url 'core:purchase_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Purchase</a>
+  </div>
+</div>
+<div class="table-wrapper">
+  <table class="table table-hover">
+    <thead>
+      <tr><th>#</th><th>Date</th><th>Items</th><th>Total (GHS)</th><th>Created By</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for p in purchases %}
+      <tr>
+        <td class="text-muted">{{ p.pk }}</td>
+        <td>{{ p.created_at|date:"d M Y" }}</td>
+        <td>{{ p.items.count }} item{{ p.items.count|pluralize }}</td>
+        <td class="fw-500">{{ p.purchase_total }}</td>
+        <td>{{ p.created_by.get_full_name|default:p.created_by.username|default:"System" }}</td>
+        <td>
+          <a href="{% url 'core:purchase_detail' p.pk %}" class="btn btn-sm btn-outline-secondary btn-icon">
+            <i class="bi bi-eye"></i>
+          </a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">
+        <div class="empty-state">
+          <i class="bi bi-cart3"></i>
+          <p>No purchases recorded yet.</p>
+          <a href="{% url 'core:purchase_create' %}" class="btn btn-primary btn-sm">Record First Purchase</a>
+        </div>
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

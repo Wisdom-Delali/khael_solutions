@@ -1,0 +1,13 @@
+"""
+utils.py — top-level utilities shared across the project.
+"""
+import json
+from decimal import Decimal
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """JSON encoder that converts Decimal to float for serialization."""
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)

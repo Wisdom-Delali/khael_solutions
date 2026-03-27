@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% block title %}{{ job.title }}{% endblock %}
+{% block topbar_title %}Job Detail{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:job_list' %}">Jobs</a></li>
+    <li class="breadcrumb-item active">{{ job.title|truncatechars:30 }}</li>
+  </ol>
+</nav>
+
+<!-- Header -->
+<div class="page-header">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <span class="badge-status badge-{{ job.status }}">{{ job.get_status_display }}</span>
+      <span class="badge-status badge-{{ job.priority }}">{{ job.get_priority_display }}</span>
+      {% if job.is_overdue %}<span class="badge-status badge-critical"><i class="bi bi-exclamation-triangle me-1"></i>Overdue</span>{% endif %}
+    </div>
+    <h1>{{ job.title }}</h1>
+    <p>{{ job.department }} {% if job.client_name %}· Client: <strong>{{ job.client_name }}</strong>{% endif %}</p>
+  </div>
+  <div class="page-actions">
+    <a href="{% url 'core:record_usage' job.pk %}" class="btn btn-outline-secondary">
+      <i class="bi bi-box-seam me-1"></i>Record Usage
+    </a>
+    {% if job.status == 'completed' %}
+    <a href="{% url 'core:payment_create' job.pk %}" class="btn btn-outline-secondary">
+      <i class="bi bi-cash-coin me-1"></i>Record Payment
+    </a>
+    {% endif %}
+    <a href="{% url 'core:job_edit' job.pk %}" class="btn btn-primary">
+      <i class="bi bi-pencil me-1"></i>Edit Job
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Left: main info -->
+  <div class="col-lg-8 d-flex flex-column gap-3">
+
+    <!-- Job details card -->
+    <div class="card">
+      <div class="card-header"><h6><i class="bi bi-info-circle me-2 text-muted"></i>Job Details</h6></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Department</div>
+            <div>{{ job.department }}</div>
+          </div>
+          <div class="col-sm-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Service Type</div>
+            <div>{{ job.get_service_type_display }}</div>
+          </div>
+          <div class="col-sm-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Assigned To</div>
+            <div>{{ job.assigned_to.get_full_name|default:job.assigned_to.username|default:"—" }}</div>
+          </div>
+          <div class="col-sm-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Start Date</div>
+            <div>{{ job.start_date|date:"d M Y"|default:"—" }}</div>
+          </div>
+          <div class="col-sm-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Due Date</div>
+            <div {% if job.is_overdue %}class="text-danger fw-500"{% endif %}>
+              {{ job.due_date|date:"d M Y"|default:"—" }}
+            </div>
+          </div>
+          {% if job.price %}
+          <div class="col-sm-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Quoted Price</div>
+            <div>GHS {{ job.price }}</div>
+          </div>
+          <div class="col-sm-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Total Expenses</div>
+            <div {% if usage_total > job.price %}class="text-danger fw-500"{% endif %}>
+              GHS {{ usage_total }}
+              {% if usage_total > job.price %}<i class="bi bi-exclamation-triangle ms-1"></i>{% endif %}
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Amount Paid</div>
+            <div class="{% if total_paid >= job.price %}text-success fw-500{% endif %}">
+              GHS {{ total_paid }}
+              {% if total_paid >= job.price %}<i class="bi bi-check-circle ms-1"></i>{% endif %}
+            </div>
+          </div>
+          {% endif %}
+          {% if job.description %}
+          <div class="col-12">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Description</div>
+            <div style="line-height:1.6;">{{ job.description }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Resource Usage -->
+    <div class="card">
+      <div class="card-header">
+        <h6><i class="bi bi-box-seam me-2 text-muted"></i>Resource Usage</h6>
+        <a href="{% url 'core:record_usage' job.pk %}" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-lg me-1"></i>Add Usage
+        </a>
+      </div>
+      {% if usages %}
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr><th>Resource</th><th>Qty</th><th>Unit Cost</th><th>Total</th><th>Recorded By</th><th>Date</th></tr>
+          </thead>
+          <tbody>
+            {% for u in usages %}
+            <tr>
+              <td>{{ u.resource.title }}</td>
+              <td>{{ u.quantity }} {{ u.resource.unit }}</td>
+              <td>GHS {{ u.unit_cost }}</td>
+              <td class="fw-500">GHS {{ u.line_total }}</td>
+              <td class="text-muted">{{ u.recorded_by.get_full_name|default:u.recorded_by.username|default:"—" }}</td>
+              <td class="text-muted">{{ u.recorded_at|date:"d M, H:i" }}</td>
+            </tr>
+            {% endfor %}
+            <tr style="background:#f8fafc; font-weight:600;">
+              <td colspan="3" class="text-end text-muted" style="font-size:12px; text-transform:uppercase; letter-spacing:.05em;">Total Cost</td>
+              <td>GHS {{ usage_total }}</td>
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-box-seam"></i>
+        <p>No resource usage recorded yet.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Payments -->
+    <div class="card">
+      <div class="card-header">
+        <h6><i class="bi bi-cash-coin me-2 text-muted"></i>Payments</h6>
+        <a href="{% url 'core:payment_create' job.pk %}" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-lg me-1"></i>Record Payment
+        </a>
+      </div>
+      {% if payments %}
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr><th>Date</th><th>Amount</th><th>Method</th><th>Reference</th><th>Recorded By</th></tr>
+          </thead>
+          <tbody>
+            {% for p in payments %}
+            <tr>
+              <td class="text-muted">{{ p.payment_date|date:"d M Y" }}</td>
+              <td class="fw-500">GHS {{ p.amount }}</td>
+              <td>{{ p.get_payment_method_display }}</td>
+              <td class="text-muted">{{ p.reference|default:"—" }}</td>
+              <td class="text-muted">{{ p.recorded_by.get_full_name|default:p.recorded_by.username }}</td>
+            </tr>
+            {% endfor %}
+            <tr style="background:#f8fafc; font-weight:600;">
+              <td colspan="1" class="text-end text-muted" style="font-size:12px; text-transform:uppercase; letter-spacing:.05em;">Total Paid</td>
+              <td>GHS {{ total_paid }}</td>
+              <td colspan="3"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-cash-coin"></i>
+        <p>No payments recorded yet.</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Right: status update + timeline + alerts -->
+  <div class="col-lg-4 d-flex flex-column gap-3">
+
+    <!-- Status Update -->
+    <div class="card">
+      <div class="card-header"><h6><i class="bi bi-arrow-repeat me-2 text-muted"></i>Update Status</h6></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'core:job_status_update' job.pk %}">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">New Status</label>
+            <select name="status" class="form-select form-select-sm">
+              {% for val, label in status_choices %}
+              <option value="{{ val }}" {% if job.status == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Comment <span class="text-muted">(optional)</span></label>
+            <textarea name="comment" class="form-control form-control-sm" rows="2" placeholder="Add a note..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-sm btn-primary w-100">Update Status</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Alerts on this job -->
+    {% if alerts %}
+    <div class="card">
+      <div class="card-header"><h6><i class="bi bi-bell me-2 text-muted"></i>Alerts</h6></div>
+      <div class="card-body p-0">
+        {% for alert in alerts %}
+        <div class="d-flex align-items-start gap-3 px-4 py-3 border-bottom">
+          <i class="bi bi-{% if alert.severity == 'critical' %}exclamation-octagon-fill text-danger{% elif alert.severity == 'warning' %}exclamation-triangle-fill text-warning{% else %}info-circle-fill text-info{% endif %} mt-1"></i>
+          <div>
+            <div style="font-size:12.5px; font-weight:500;">{{ alert.get_alert_type_display }}</div>
+            <div class="text-muted" style="font-size:12px;">{{ alert.message|truncatechars:80 }}</div>
+            {% if alert.resolved %}<div class="text-success" style="font-size:11px; margin-top:2px;"><i class="bi bi-check-circle me-1"></i>Resolved</div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Timeline -->
+    <div class="card">
+      <div class="card-header"><h6><i class="bi bi-clock-history me-2 text-muted"></i>Activity Timeline</h6></div>
+      <div class="card-body">
+        <div class="timeline">
+          {% for update in timeline %}
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div style="font-size:13px; font-weight:500;">
+                <span class="badge-status badge-{{ update.status }}">{{ update.get_status_display }}</span>
+              </div>
+              {% if update.comment %}<div style="font-size:13px; margin-top:4px;">{{ update.comment }}</div>{% endif %}
+              <div class="timeline-meta">
+                {{ update.updated_by.get_full_name|default:update.updated_by.username|default:"System" }}
+                &middot; {{ update.timestamp|date:"d M Y, H:i" }}
+              </div>
+            </div>
+          </div>
+          {% empty %}
+          <p class="text-muted" style="font-size:13px;">No updates yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

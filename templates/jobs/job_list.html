@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}Jobs{% endblock %}
+{% block topbar_title %}Jobs{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'core:job_create' %}" class="btn btn-sm btn-primary">
+  <i class="bi bi-plus-lg me-1"></i>New Job
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Jobs</h1>
+    <p>Track and manage all work orders across departments</p>
+  </div>
+  <div class="page-actions">
+    <a href="{% url 'core:job_create' %}" class="btn btn-primary">
+      <i class="bi bi-plus-lg me-1"></i>New Job
+    </a>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-12 col-sm-6 col-md-3">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">All Statuses</option>
+          {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-sm-6 col-md-3">
+        <label class="form-label">Priority</label>
+        <select name="priority" class="form-select form-select-sm">
+          <option value="">All Priorities</option>
+          {% for val, label in priority_choices %}
+          <option value="{{ val }}" {% if selected_priority == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if user.role in 'super_admin,manager' %}
+      <div class="col-12 col-sm-6 col-md-3">
+        <label class="form-label">Department</label>
+        <select name="department" class="form-select form-select-sm">
+          <option value="">All Departments</option>
+          {% for dept in departments %}
+          <option value="{{ dept.pk }}" {% if selected_dept == dept.pk|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-funnel me-1"></i>Filter
+        </button>
+        <a href="{% url 'core:job_list' %}" class="btn btn-sm btn-link text-muted">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Jobs Table -->
+<div class="table-wrapper">
+  <table class="table table-hover">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Title</th>
+        <th>Department</th>
+        <th>Assigned To</th>
+        <th>Priority</th>
+        <th>Status</th>
+        <th>Due Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td class="text-muted" style="font-size:12px;">{{ job.pk }}</td>
+        <td>
+          <a href="{% url 'core:job_detail' job.pk %}" class="text-decoration-none fw-500" style="color:var(--text);">
+            {{ job.title|truncatechars:45 }}
+          </a>
+          {% if job.client_name %}
+          <div class="text-muted" style="font-size:11.5px;">{{ job.client_name }}</div>
+          {% endif %}
+        </td>
+        <td><span class="text-muted">{{ job.department }}</span></td>
+        <td>
+          {% if job.assigned_to %}{{ job.assigned_to.get_full_name|default:job.assigned_to.username }}
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td><span class="badge-status badge-{{ job.priority }}">{{ job.get_priority_display }}</span></td>
+        <td><span class="badge-status badge-{{ job.status }}">{{ job.get_status_display }}</span></td>
+        <td>
+          {% if job.due_date %}
+            {% if job.is_overdue %}
+              <span class="text-danger fw-500"><i class="bi bi-exclamation-circle me-1"></i>{{ job.due_date|date:"d M Y" }}</span>
+            {% else %}
+              {{ job.due_date|date:"d M Y" }}
+            {% endif %}
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td>
+          <a href="{% url 'core:job_detail' job.pk %}" class="btn btn-sm btn-outline-secondary btn-icon" title="View">
+            <i class="bi bi-eye"></i>
+          </a>
+          <a href="{% url 'core:job_edit' job.pk %}" class="btn btn-sm btn-outline-secondary btn-icon" title="Edit">
+            <i class="bi bi-pencil"></i>
+          </a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">
+            <i class="bi bi-briefcase"></i>
+            <p>No jobs found. Adjust your filters or create a new job.</p>
+            <a href="{% url 'core:job_create' %}" class="btn btn-primary btn-sm">
+              <i class="bi bi-plus-lg me-1"></i>Create First Job
+            </a>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

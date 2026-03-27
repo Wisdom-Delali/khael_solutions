@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}Users{% endblock %}
+{% block topbar_title %}User Management{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'core:user_create' %}" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg me-1"></i>Add User</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div><h1>Users</h1><p>Manage system accounts and role assignments</p></div>
+  <div class="page-actions">
+    <a href="{% url 'core:user_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add User</a>
+  </div>
+</div>
+<div class="table-wrapper">
+  <table class="table table-hover">
+    <thead>
+      <tr><th>Name</th><th>Username</th><th>Role</th><th>Department</th><th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--canvas);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-muted);flex-shrink:0;">
+              {{ u.first_name|slice:":1"|upper }}{{ u.last_name|slice:":1"|upper }}
+            </div>
+            <div>
+              <div class="fw-500">{{ u.get_full_name|default:u.username }}</div>
+              {% if u.email %}<div class="text-muted" style="font-size:11.5px;">{{ u.email }}</div>{% endif %}
+            </div>
+          </div>
+        </td>
+        <td class="text-muted">{{ u.username }}</td>
+        <td><span class="badge-status badge-{% if u.role == 'super_admin' %}critical{% elif u.role == 'manager' %}high{% else %}medium{% endif %}">{{ u.get_role_display }}</span></td>
+        <td>{{ u.get_department|default:"—" }}</td>
+        <td>
+          {% if u.is_active %}<span class="badge-status badge-completed">Active</span>
+          {% else %}<span class="badge-status badge-cancelled">Inactive</span>{% endif %}
+        </td>
+        <td>
+          <a href="{% url 'core:user_edit' u.pk %}" class="btn btn-sm btn-outline-secondary btn-icon"><i class="bi bi-pencil"></i></a>
+          {% if u != request.user %}
+          <form method="post" action="{% url 'core:user_toggle_active' u.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-icon {% if u.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                    title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %}">
+              <i class="bi bi-{% if u.is_active %}pause{% else %}play{% endif %}"></i>
+            </button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6"><div class="empty-state"><i class="bi bi-people"></i><p>No users found.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

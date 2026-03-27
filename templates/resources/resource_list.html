@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Resources{% endblock %}
+{% block topbar_title %}Resources{% endblock %}
+{% block topbar_actions %}
+{% if user.role in 'super_admin,manager' %}
+<a href="{% url 'core:resource_create' %}" class="btn btn-sm btn-primary">
+  <i class="bi bi-plus-lg me-1"></i>Add Resource
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Resources</h1>
+    <p>Monitor stock levels and manage inventory</p>
+  </div>
+  {% if user.role in 'super_admin,manager' %}
+  <div class="page-actions">
+    <a href="{% url 'core:purchase_create' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-cart-plus me-1"></i>New Purchase
+    </a>
+    <a href="{% url 'core:resource_create' %}" class="btn btn-primary">
+      <i class="bi bi-plus-lg me-1"></i>Add Resource
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="table-wrapper">
+  <table class="table table-hover">
+    <thead>
+      <tr>
+        <th>Resource</th>
+        <th>Unit</th>
+        <th>In Stock</th>
+        <th>Reorder Level</th>
+        <th>Unit Cost (GHS)</th>
+        <th>Stock Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for res in resources %}
+      <tr>
+        <td class="fw-500">{{ res.title }}</td>
+        <td class="text-muted">{{ res.unit }}</td>
+        <td>
+          {% if res.pk in low_stock_ids %}
+            <span class="text-danger fw-500">{{ res.quantity }}</span>
+          {% else %}
+            {{ res.quantity }}
+          {% endif %}
+        </td>
+        <td class="text-muted">{{ res.reorder_level }}</td>
+        <td>{{ res.unit_cost }}</td>
+        <td>
+          {% if res.pk in low_stock_ids %}
+            <span class="badge-status badge-warning"><i class="bi bi-exclamation-triangle me-1"></i>Low Stock</span>
+          {% else %}
+            <span class="badge-status badge-completed">OK</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{% url 'core:resource_detail' res.pk %}" class="btn btn-sm btn-outline-secondary btn-icon" title="View">
+            <i class="bi bi-eye"></i>
+          </a>
+          {% if user.role in 'super_admin,manager' %}
+          <a href="{% url 'core:resource_edit' res.pk %}" class="btn btn-sm btn-outline-secondary btn-icon" title="Edit">
+            <i class="bi bi-pencil"></i>
+          </a>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7">
+          <div class="empty-state">
+            <i class="bi bi-box-seam"></i>
+            <p>No resources found. Add your first resource to start tracking inventory.</p>
+            {% if user.role in 'super_admin,manager' %}
+            <a href="{% url 'core:resource_create' %}" class="btn btn-primary btn-sm">Add Resource</a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

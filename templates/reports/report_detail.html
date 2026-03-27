@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Report — {{ report.period_start|date:"d M" }} to {{ report.period_end|date:"d M Y" }}{% endblock %}
+{% block topbar_title %}BI Report{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:report_list' %}">Reports</a></li>
+    <li class="breadcrumb-item active">{{ report.period_start|date:"d M" }} – {{ report.period_end|date:"d M Y" }}</li>
+  </ol>
+</nav>
+
+<div class="page-header">
+  <div>
+    <div class="d-flex gap-2 mb-1">
+      <span class="badge-status {% if report.report_type == 'weekly' %}badge-info{% else %}badge-medium{% endif %}">
+        {{ report.get_report_type_display }}
+      </span>
+    </div>
+    <h1>{{ report.period_start|date:"d F" }} – {{ report.period_end|date:"d F Y" }}</h1>
+    <p>
+      Generated {{ report.created_at|date:"d M Y, H:i" }}
+      {% if report.generated_by %} by {{ report.generated_by.get_full_name|default:report.generated_by.username }}
+      {% else %} automatically{% endif %}
+    </p>
+  </div>
+  <a href="{% url 'core:report_list' %}" class="btn btn-outline-secondary">← Back</a>
+</div>
+
+<div class="row g-3">
+  <!-- AI Narrative -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        <h6><i class="bi bi-stars me-2" style="color:var(--amber);"></i>AI Narrative Summary</h6>
+      </div>
+      <div class="card-body">
+        <div style="font-size:14.5px; line-height:1.85; color:var(--text); white-space: pre-wrap;">{{ report.summary_text }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Raw Stats -->
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><h6><i class="bi bi-bar-chart me-2 text-muted"></i>Key Metrics</h6></div>
+      <div class="card-body p-0">
+        {% with d=report.raw_data_snapshot %}
+
+        <!-- Jobs -->
+        <div class="px-4 py-3 border-bottom">
+          <div class="text-muted mb-2" style="font-size:11px; text-transform:uppercase; letter-spacing:.07em; font-weight:600;">Jobs</div>
+          <div class="row g-1">
+            <div class="col-6"><div style="font-size:12px; color:var(--text-muted);">Created</div><div class="fw-600">{{ d.jobs.total_created }}</div></div>
+            <div class="col-6"><div style="font-size:12px; color:var(--text-muted);">Completed</div><div class="fw-600 text-success">{{ d.jobs.completed }}</div></div>
+            <div class="col-6"><div style="font-size:12px; color:var(--text-muted);">Overdue</div><div class="fw-600 text-danger">{{ d.jobs.overdue }}</div></div>
+            <div class="col-6"><div style="font-size:12px; color:var(--text-muted);">Cancelled</div><div class="fw-600">{{ d.jobs.cancelled }}</div></div>
+          </div>
+        </div>
+
+        <!-- Resources -->
+        <div class="px-4 py-3 border-bottom">
+          <div class="text-muted mb-2" style="font-size:11px; text-transform:uppercase; letter-spacing:.07em; font-weight:600;">Expenses</div>
+          <div style="font-size:13px; color:var(--text-muted);">Total resource cost</div>
+          <div class="fw-700" style="font-size:18px;">GHS {{ d.resources.total_cost }}</div>
+        </div>
+
+        <!-- Purchases -->
+        <div class="px-4 py-3 border-bottom">
+          <div class="text-muted mb-2" style="font-size:11px; text-transform:uppercase; letter-spacing:.07em; font-weight:600;">Purchases</div>
+          <div class="row g-1">
+            <div class="col-6"><div style="font-size:12px; color:var(--text-muted);">Count</div><div class="fw-600">{{ d.purchases.count }}</div></div>
+            <div class="col-6"><div style="font-size:12px; color:var(--text-muted);">Spend</div><div class="fw-600">GHS {{ d.purchases.total_spend }}</div></div>
+          </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="px-4 py-3">
+          <div class="text-muted mb-2" style="font-size:11px; text-transform:uppercase; letter-spacing:.07em; font-weight:600;">Alerts</div>
+          <div class="row g-1">
+            <div class="col-6"><div style="font-size:12px; color:var(--text-muted);">Total</div><div class="fw-600">{{ d.alerts.total }}</div></div>
+            <div class="col-6"><div style="font-size:12px; color:var(--text-muted);">Resolved</div><div class="fw-600 text-success">{{ d.alerts.resolved }}</div></div>
+          </div>
+        </div>
+        {% endwith %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

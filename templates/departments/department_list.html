@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Departments{% endblock %}
+{% block topbar_title %}Departments{% endblock %}
+{% block topbar_actions %}
+<a href="{% url 'core:department_create' %}" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg me-1"></i>Add Department</a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div><h1>Departments</h1><p>Configure service departments and their members</p></div>
+  <div class="page-actions">
+    <a href="{% url 'core:department_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add Department</a>
+  </div>
+</div>
+<div class="row g-3">
+  {% for dept in departments %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between mb-3">
+          <div>
+            <h5 class="mb-1">{{ dept.name }}</h5>
+            {% if dept.hod %}<div class="text-muted" style="font-size:12.5px;"><i class="bi bi-person me-1"></i>HOD: {{ dept.hod.get_full_name|default:dept.hod.username }}</div>{% endif %}
+          </div>
+          <a href="{% url 'core:department_edit' dept.pk %}" class="btn btn-sm btn-outline-secondary btn-icon"><i class="bi bi-pencil"></i></a>
+        </div>
+        {% if dept.description %}<p class="text-muted mb-3" style="font-size:13px;">{{ dept.description }}</p>{% endif %}
+        <div style="font-size:12px; color:var(--text-muted);">
+          <i class="bi bi-people me-1"></i>{{ dept.members.count }} member{{ dept.members.count|pluralize }}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12">
+    <div class="card"><div class="empty-state">
+      <i class="bi bi-diagram-3"></i>
+      <p>No departments configured yet.</p>
+      <a href="{% url 'core:department_create' %}" class="btn btn-primary btn-sm">Add First Department</a>
+    </div></div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

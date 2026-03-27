@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}{{ action }} Resource{% endblock %}
+{% block topbar_title %}{{ action }} Resource{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:resource_list' %}">Resources</a></li>
+    <li class="breadcrumb-item active">{{ action }}</li>
+  </ol>
+</nav>
+<div class="page-header">
+  <div><h1>{{ action }} Resource</h1></div>
+</div>
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header"><h6>Resource Details</h6></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Resource Name <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control" value="{{ resource.title|default:'' }}" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Unit <span class="text-danger">*</span></label>
+            <input type="text" name="unit" class="form-control" value="{{ resource.unit|default:'' }}" placeholder="e.g. reams, units, metres" required />
+          </div>
+          <div class="row g-3 mb-3">
+            {% if action == 'Create' %}
+            <div class="col-sm-6">
+              <label class="form-label">Initial Quantity</label>
+              <input type="number" name="quantity" class="form-control" step="0.01" min="0" value="0" />
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Unit Cost (GHS)</label>
+              <input type="number" name="unit_cost" class="form-control" step="0.01" min="0" value="0" />
+            </div>
+            {% endif %}
+            <div class="col-sm-6">
+              <label class="form-label">Reorder Level</label>
+              <input type="number" name="reorder_level" class="form-control" step="0.01" min="0" value="{{ resource.reorder_level|default:'10' }}" />
+              <div class="form-text">Alert when stock falls at or below this quantity</div>
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+            <a href="{% url 'core:resource_list' %}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ action }} Resource</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

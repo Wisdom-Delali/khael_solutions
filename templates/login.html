@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — Khael Solutions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+</head>
+<body class="login-body">
+
+<!-- Left decorative panel -->
+<div class="login-left">
+  <div class="left-content">
+    <div class="brand-mark">K</div>
+    <h1>Operations &<br><em>Intelligence</em><br>Platform</h1>
+    <p>Centralized workflow management, automated anomaly detection, and AI-powered business insights for Khael Solutions.</p>
+    <ul class="feature-list">
+      <li><i class="bi bi-check-circle-fill"></i> Job tracking across all departments</li>
+      <li><i class="bi bi-check-circle-fill"></i> Automated alerts for delays &amp; overspend</li>
+      <li><i class="bi bi-check-circle-fill"></i> AI-generated weekly BI reports</li>
+      <li><i class="bi bi-check-circle-fill"></i> Real-time resource &amp; expense monitoring</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Right login form -->
+<div class="login-right">
+  <h2>Welcome back</h2>
+  <p class="subtitle">Sign in to your account to continue</p>
+
+  {% if messages %}
+    {% for message in messages %}
+    <div class="error-msg"><i class="bi bi-exclamation-triangle-fill"></i> {{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label class="form-label">Username</label>
+      <input type="text" name="username" class="form-control"
+             placeholder="Enter your username"
+             value="{{ username|default:'' }}" autocomplete="username" required />
+    </div>
+    <div class="mb-4">
+      <label class="form-label">Password</label>
+      <input type="password" name="password" class="form-control"
+             placeholder="Enter your password" autocomplete="current-password" required />
+    </div>
+    <button type="submit" class="btn-login">Sign In <i class="bi bi-arrow-right ms-1"></i></button>
+  </form>
+
+  <div class="login-footer">
+    <p>Khael Solutions Internal System &mdash; Authorised Users Only</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

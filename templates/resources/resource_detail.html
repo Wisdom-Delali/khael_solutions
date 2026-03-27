@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% block title %}{{ resource.title }}{% endblock %}
+{% block topbar_title %}Resource Detail{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:resource_list' %}">Resources</a></li>
+    <li class="breadcrumb-item active">{{ resource.title }}</li>
+  </ol>
+</nav>
+
+<div class="page-header">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      {% if resource.is_low_stock %}
+        <span class="badge-status badge-warning"><i class="bi bi-exclamation-triangle me-1"></i>Low Stock</span>
+      {% else %}
+        <span class="badge-status badge-completed">In Stock</span>
+      {% endif %}
+    </div>
+    <h1>{{ resource.title }}</h1>
+    <p>{{ resource.quantity }} {{ resource.unit }} in stock &middot; GHS {{ resource.unit_cost }} per {{ resource.unit }}</p>
+  </div>
+  {% if user.role in 'super_admin,manager' %}
+  <div class="page-actions">
+    <a href="{% url 'core:resource_edit' resource.pk %}" class="btn btn-primary">
+      <i class="bi bi-pencil me-1"></i>Edit Resource
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="row g-3">
+
+  <!-- Left: Resource Info + Price History -->
+  <div class="col-lg-6 d-flex flex-column gap-3">
+
+    <!-- Info Card -->
+    <div class="card">
+      <div class="card-header"><h6><i class="bi bi-box-seam me-2 text-muted"></i>Resource Details</h6></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Unit</div>
+            <div>{{ resource.unit }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Current Stock</div>
+            <div class="{% if resource.is_low_stock %}text-danger fw-500{% endif %}">
+              {{ resource.quantity }} {{ resource.unit }}
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Unit Cost</div>
+            <div>GHS {{ resource.unit_cost }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Reorder Level</div>
+            <div>{{ resource.reorder_level }} {{ resource.unit }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Last Updated</div>
+            <div>{{ resource.updated_at|date:"d M Y, H:i" }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:4px;">Date Added</div>
+            <div>{{ resource.created_at|date:"d M Y" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Price History -->
+    <div class="card">
+      <div class="card-header">
+        <h6><i class="bi bi-graph-up me-2 text-muted"></i>Price History</h6>
+      </div>
+      {% if price_history %}
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Old Price</th>
+              <th>New Price</th>
+              <th>Change</th>
+              <th>Purchase</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in price_history %}
+            <tr>
+              <td class="text-muted">{{ record.created_at|date:"d M Y" }}</td>
+              <td>GHS {{ record.old_price }}</td>
+              <td class="fw-500">GHS {{ record.new_price }}</td>
+              <td>
+                {% if record.new_price > record.old_price %}
+                  <span class="text-danger"><i class="bi bi-arrow-up-short"></i>GHS {{ record.new_price|floatformat:2 }}</span>
+                {% elif record.new_price < record.old_price %}
+                  <span class="text-success"><i class="bi bi-arrow-down-short"></i>GHS {{ record.old_price|floatformat:2 }}</span>
+                {% else %}
+                  <span class="text-muted">No change</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if record.purchase %}
+                  <a href="{% url 'core:purchase_detail' record.purchase.pk %}" class="text-muted" style="font-size:12px;">
+                    #{{ record.purchase.pk }}
+                  </a>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-graph-up"></i>
+        <p>No price changes recorded yet.</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Right: Usage History -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">
+        <h6><i class="bi bi-clock-history me-2 text-muted"></i>Usage History</h6>
+      </div>
+      {% if usages %}
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Job</th>
+              <th>Qty Used</th>
+              <th>Unit Cost</th>
+              <th>Total</th>
+              <th>By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for usage in usages %}
+            <tr>
+              <td class="text-muted" style="font-size:12px; white-space:nowrap;">{{ usage.recorded_at|date:"d M Y" }}</td>
+              <td>
+                <a href="{% url 'core:job_detail' usage.job.pk %}" class="text-decoration-none" style="font-size:13px; color:var(--text);">
+                  {{ usage.job.title|truncatechars:30 }}
+                </a>
+              </td>
+              <td>{{ usage.quantity }} {{ resource.unit }}</td>
+              <td class="text-muted">GHS {{ usage.unit_cost }}</td>
+              <td class="fw-500">GHS {{ usage.line_total }}</td>
+              <td class="text-muted" style="font-size:12px;">
+                {{ usage.recorded_by.get_full_name|default:usage.recorded_by.username|default:"—" }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-box-seam"></i>
+        <p>This resource has not been used in any job yet.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

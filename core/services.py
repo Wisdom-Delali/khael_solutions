@@ -1,0 +1,496 @@
+"""
+core/services.py — all business logic in one place.
+
+Sections:
+  1. Job Service          — create, update, edit jobs; role-aware querying
+  2. Resource Service     — purchases, usage recording, stock queries
+  3. Alert Service        — 5 rule-based checks + composite sweeps
+  4. Report Service       — data aggregation, OpenAI prompt, report generation
+"""
+import json
+from decimal import Decimal
+from datetime import date, timedelta
+
+from django.db import transaction
+from django.db.models import Sum, Count, Q, F
+from django.utils import timezone
+from django.conf import settings
+
+from core.utils import DecimalEncoder
+
+
+# ══════════════════════════════════════════════════════════
+# 1. JOB SERVICE
+# ══════════════════════════════════════════════════════════
+
+def get_jobs_for_user(user):
+    """Role-aware job queryset: staff see only their department."""
+    from core.models import Job
+    if user.role in ['super_admin', 'manager']:
+        return Job.objects.all().select_related('department', 'assigned_to', 'created_by')
+    dept = user.get_department()
+    if dept:
+        return Job.objects.filter(department=dept).select_related(
+            'department', 'assigned_to', 'created_by'
+        )
+    return Job.objects.none()
+
+
+@transaction.atomic
+def create_job(title, department, created_by, description='', assigned_to=None,
+               client_name='', client_contact='', priority=None, service_type=None,
+               price=None, start_date=None, due_date=None):
+    from core.models import Job, JobUpdate
+    if priority is None:
+        priority = Job.Priority.MEDIUM
+    if service_type is None:
+        service_type = Job.ServiceType.GENERAL
+
+    job = Job.objects.create(
+        title=title, department=department, created_by=created_by,
+        description=description, assigned_to=assigned_to,
+        client_name=client_name, client_contact=client_contact,
+        priority=priority, service_type=service_type,
+        price=price, start_date=start_date, due_date=due_date,
+        status=Job.Status.PENDING,
+    )
+    JobUpdate.objects.create(
+        job=job, updated_by=created_by,
+        status=Job.Status.PENDING, comment='Job created.',
+    )
+    return job
+
+
+@transaction.atomic
+def update_job_status(job, new_status, updated_by, comment=''):
+    from core.models import Job, JobUpdate
+    old_status = job.status
+    job.status = new_status
+    if new_status == Job.Status.COMPLETED:
+        job.completed_at = timezone.now()
+    elif old_status == Job.Status.COMPLETED:
+        job.completed_at = None
+    job.save()
+    JobUpdate.objects.create(
+        job=job, updated_by=updated_by, status=new_status,
+        comment=comment or f'Status changed from {old_status} to {new_status}.',
+    )
+    run_job_alert_checks(job)
+    return job
+
+
+@transaction.atomic
+def edit_job(job, updated_by, **kwargs):
+    from core.models import JobUpdate
+    allowed = {
+        'title', 'description', 'priority', 'service_type', 'price',
+        'start_date', 'due_date', 'assigned_to', 'client_name', 'client_contact',
+    }
+    for field, value in kwargs.items():
+        if field in allowed:
+            setattr(job, field, value)
+    job.save()
+    JobUpdate.objects.create(
+        job=job, updated_by=updated_by, status=job.status, comment='Job details updated.',
+    )
+    run_job_alert_checks(job)
+    return job
+
+
+def get_job_timeline(job):
+    return job.updates.select_related('updated_by').order_by('timestamp')
+
+
+# ══════════════════════════════════════════════════════════
+# 2. RESOURCE SERVICE
+# ══════════════════════════════════════════════════════════
+
+@transaction.atomic
+def create_purchase(created_by, items, notes=''):
+    """
+    items: [{'resource': Resource, 'quantity': Decimal, 'unit_cost': Decimal}, ...]
+    """
+    from core.models import Purchase, PurchaseResource, ResourceHistory
+    purchase = Purchase.objects.create(created_by=created_by, notes=notes)
+    total = Decimal('0')
+
+    for item in items:
+        resource  = item['resource']
+        qty       = item['quantity']
+        unit_cost = item['unit_cost']
+
+        if resource.unit_cost != unit_cost:
+            ResourceHistory.objects.create(
+                resource=resource, purchase=purchase,
+                old_price=resource.unit_cost, new_price=unit_cost,
+            )
+            resource.unit_cost = unit_cost
+
+        PurchaseResource.objects.create(
+            purchase=purchase, resource=resource,
+            quantity=qty, unit_cost=unit_cost,
+        )
+        resource.quantity += qty
+        resource.save()
+        total += qty * unit_cost
+
+    purchase.purchase_total = total
+    purchase.save()
+
+    for item in items:
+        check_low_stock_alert(item['resource'])
+
+    return purchase
+
+
+@transaction.atomic
+def record_resource_usage(job, resource, quantity, recorded_by):
+    from core.models import ResourceUsage
+    quantity = Decimal(str(quantity))
+    if resource.quantity < quantity:
+        raise ValueError(
+            f"Insufficient stock for '{resource.title}'. "
+            f"Available: {resource.quantity} {resource.unit}, requested: {quantity}."
+        )
+    usage = ResourceUsage.objects.create(
+        job=job, resource=resource, quantity=quantity,
+        unit_cost=resource.unit_cost, recorded_by=recorded_by,
+    )
+    resource.quantity -= quantity
+    resource.save()
+    check_low_stock_alert(resource)
+    check_abnormal_expense_alert(job)
+    return usage
+
+
+def get_resource_list():
+    from core.models import Resource
+    return Resource.objects.all().order_by('title')
+
+
+def get_low_stock_resources():
+    from core.models import Resource
+    return Resource.objects.filter(quantity__lte=F('reorder_level'))
+
+
+def get_job_usage_summary(job):
+    usages = job.resource_usages.select_related('resource', 'recorded_by')
+    total  = sum(u.line_total() for u in usages)
+    return usages, total
+
+
+# ══════════════════════════════════════════════════════════
+# 3. ALERT SERVICE
+# ══════════════════════════════════════════════════════════
+
+def _alert_exists(alert_type, job=None, resource=None):
+    from core.models import Alert
+    qs = Alert.objects.filter(alert_type=alert_type, resolved=False)
+    if job:      qs = qs.filter(job=job)
+    if resource: qs = qs.filter(resource=resource)
+    return qs.exists()
+
+
+def _create_alert(alert_type, severity, message, job=None, resource=None):
+    from core.models import Alert
+    if not _alert_exists(alert_type, job=job, resource=resource):
+        Alert.objects.create(
+            alert_type=alert_type, severity=severity,
+            message=message, job=job, resource=resource,
+        )
+
+
+def _resolve_alert_if_exists(alert_type, job=None, resource=None):
+    from core.models import Alert
+    qs = Alert.objects.filter(alert_type=alert_type, resolved=False)
+    if job:      qs = qs.filter(job=job)
+    if resource: qs = qs.filter(resource=resource)
+    qs.update(resolved=True, resolved_at=timezone.now())
+
+
+def check_overdue_job_alert(job):
+    from core.models import Job, Alert
+    if job.status in [Job.Status.COMPLETED, Job.Status.CANCELLED]:
+        _resolve_alert_if_exists(Alert.AlertType.OVERDUE_JOB, job=job)
+        return
+    if job.is_overdue():
+        days_late = (timezone.now().date() - job.due_date).days
+        _create_alert(
+            alert_type=Alert.AlertType.OVERDUE_JOB,
+            severity=Alert.Severity.CRITICAL if days_late > 3 else Alert.Severity.WARNING,
+            message=(
+                f'Job "{job.title}" (#{job.pk}) is {days_late} day(s) overdue. '
+                f'Due: {job.due_date}, Department: {job.department}.'
+            ),
+            job=job,
+        )
+    else:
+        _resolve_alert_if_exists(Alert.AlertType.OVERDUE_JOB, job=job)
+
+
+def check_abnormal_expense_alert(job):
+    from core.models import Alert
+    total_expenses = job.total_expenses()
+    global_cap     = getattr(settings, 'GLOBAL_EXPENSE_CAP', 5000.00)
+
+    if job.price and total_expenses > job.price:
+        overage = total_expenses - job.price
+        _create_alert(
+            alert_type=Alert.AlertType.ABNORMAL_EXPENSE,
+            severity=Alert.Severity.CRITICAL,
+            message=(
+                f'Job "{job.title}" (#{job.pk}) expenses (GHS {total_expenses:.2f}) '
+                f'exceed budget of GHS {job.price:.2f} by GHS {overage:.2f}.'
+            ),
+            job=job,
+        )
+    elif total_expenses > global_cap:
+        _create_alert(
+            alert_type=Alert.AlertType.ABNORMAL_EXPENSE,
+            severity=Alert.Severity.WARNING,
+            message=(
+                f'Job "{job.title}" (#{job.pk}) expenses (GHS {total_expenses:.2f}) '
+                f'exceed the global cap of GHS {global_cap:.2f}.'
+            ),
+            job=job,
+        )
+    else:
+        _resolve_alert_if_exists(Alert.AlertType.ABNORMAL_EXPENSE, job=job)
+
+
+def check_scheduling_conflict(job):
+    from core.models import Job, Alert
+    if not job.assigned_to or not job.start_date or not job.due_date:
+        return
+    overlapping = Job.objects.filter(
+        assigned_to=job.assigned_to, department=job.department,
+        status__in=[Job.Status.PENDING, Job.Status.IN_PROGRESS],
+        start_date__lte=job.due_date, due_date__gte=job.start_date,
+    ).exclude(pk=job.pk)
+    if overlapping.exists():
+        conflict_titles = ', '.join(f'"{j.title}" (#{j.pk})' for j in overlapping[:3])
+        _create_alert(
+            alert_type=Alert.AlertType.SCHEDULING_CONFLICT,
+            severity=Alert.Severity.WARNING,
+            message=(
+                f'Staff member "{job.assigned_to.get_full_name() or job.assigned_to.username}" '
+                f'has overlapping jobs in {job.department}: {conflict_titles}.'
+            ),
+            job=job,
+        )
+    else:
+        _resolve_alert_if_exists(Alert.AlertType.SCHEDULING_CONFLICT, job=job)
+
+
+def check_overdue_payment_alert(job):
+    from core.models import Job, Alert
+    if job.status != Job.Status.COMPLETED or not job.price or not job.completed_at:
+        _resolve_alert_if_exists(Alert.AlertType.OVERDUE_PAYMENT, job=job)
+        return
+
+    total_paid  = job.total_paid()
+    outstanding = job.price - total_paid
+
+    if outstanding <= 0:
+        _resolve_alert_if_exists(Alert.AlertType.OVERDUE_PAYMENT, job=job)
+        return
+
+    days_since = (timezone.now() - job.completed_at).days
+    if days_since > 7:
+        _create_alert(
+            alert_type=Alert.AlertType.OVERDUE_PAYMENT,
+            severity=Alert.Severity.WARNING,
+            message=(
+                f'Job "{job.title}" (#{job.pk}) completed {days_since} day(s) ago. '
+                f'Outstanding: GHS {outstanding:.2f} of GHS {job.price:.2f}. '
+                f'Please record payment.'
+            ),
+            job=job,
+        )
+
+
+def check_low_stock_alert(resource):
+    from core.models import Alert
+    if resource.is_low_stock():
+        _create_alert(
+            alert_type=Alert.AlertType.LOW_STOCK,
+            severity=Alert.Severity.WARNING,
+            message=(
+                f'Resource "{resource.title}" is low on stock: '
+                f'{resource.quantity} {resource.unit} remaining '
+                f'(reorder level: {resource.reorder_level} {resource.unit}). '
+                f'Please arrange a purchase.'
+            ),
+            resource=resource,
+        )
+    else:
+        _resolve_alert_if_exists(Alert.AlertType.LOW_STOCK, resource=resource)
+
+
+def run_job_alert_checks(job):
+    """Run all 4 job-related checks. Called after any job save/update."""
+    check_overdue_job_alert(job)
+    check_abnormal_expense_alert(job)
+    check_scheduling_conflict(job)
+    check_overdue_payment_alert(job)
+
+
+def run_all_checks():
+    """Periodic sweep — called by scheduler daily."""
+    from core.models import Job, Resource
+    active_jobs = Job.objects.filter(
+        status__in=[Job.Status.PENDING, Job.Status.IN_PROGRESS, Job.Status.COMPLETED]
+    ).select_related('department', 'assigned_to')
+    for job in active_jobs:
+        run_job_alert_checks(job)
+    for resource in Resource.objects.all():
+        check_low_stock_alert(resource)
+
+
+# ══════════════════════════════════════════════════════════
+# 4. REPORT SERVICE
+# ══════════════════════════════════════════════════════════
+
+def aggregate_operational_data(period_start: date, period_end: date) -> dict:
+    from core.models import Job, Alert, Resource, ResourceUsage, Purchase
+
+    jobs_in_period      = Job.objects.filter(created_at__date__range=(period_start, period_end))
+    completed_in_period = Job.objects.filter(
+        completed_at__date__range=(period_start, period_end), status=Job.Status.COMPLETED,
+    )
+
+    job_stats = {
+        'total_created': jobs_in_period.count(),
+        'completed':     completed_in_period.count(),
+        'pending':       jobs_in_period.filter(status=Job.Status.PENDING).count(),
+        'in_progress':   jobs_in_period.filter(status=Job.Status.IN_PROGRESS).count(),
+        'cancelled':     jobs_in_period.filter(status=Job.Status.CANCELLED).count(),
+        'on_hold':       jobs_in_period.filter(status=Job.Status.ON_HOLD).count(),
+        'overdue':       Job.objects.filter(
+            due_date__lt=timezone.now().date(),
+            status__in=[Job.Status.PENDING, Job.Status.IN_PROGRESS]
+        ).count(),
+    }
+
+    dept_breakdown = list(
+        jobs_in_period.values('department__name')
+        .annotate(count=Count('id'), completed=Count('id', filter=Q(status='completed')))
+        .order_by('-count')
+    )
+
+    usages_in_period = ResourceUsage.objects.filter(
+        recorded_at__date__range=(period_start, period_end)
+    )
+    total_resource_cost = sum(
+        u.quantity * u.unit_cost for u in usages_in_period.only('quantity', 'unit_cost')
+    )
+    resource_stats = {
+        'total_usage_records': usages_in_period.count(),
+        'total_cost': float(total_resource_cost),
+        'top_resources': list(
+            usages_in_period.values('resource__title')
+            .annotate(total_qty=Sum('quantity'))
+            .order_by('-total_qty')[:5]
+        ),
+    }
+
+    purchases_in_period = Purchase.objects.filter(
+        created_at__date__range=(period_start, period_end)
+    )
+    purchase_stats = {
+        'count':       purchases_in_period.count(),
+        'total_spend': float(purchases_in_period.aggregate(t=Sum('purchase_total'))['t'] or 0),
+    }
+
+    alerts_in_period = Alert.objects.filter(
+        created_at__date__range=(period_start, period_end)
+    )
+    alert_stats = {
+        'total':    alerts_in_period.count(),
+        'resolved': alerts_in_period.filter(resolved=True).count(),
+        'unresolved': alerts_in_period.filter(resolved=False).count(),
+        'by_type': list(
+            alerts_in_period.values('alert_type')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+        ),
+    }
+
+    low_stock_count = Resource.objects.filter(quantity__lte=F('reorder_level')).count()
+
+    return {
+        'period':              {'start': str(period_start), 'end': str(period_end)},
+        'jobs':                job_stats,
+        'departments':         dept_breakdown,
+        'resources':           resource_stats,
+        'purchases':           purchase_stats,
+        'alerts':              alert_stats,
+        'low_stock_resources': low_stock_count,
+    }
+
+
+def build_prompt(data: dict) -> str:
+    return f"""You are a business intelligence analyst for Khael Solutions, a service company \
+operating printing, network, and multimedia departments in Ghana.
+
+Based on the following operational data for the period {data['period']['start']} \
+to {data['period']['end']}, write a professional operational summary report.
+
+The report should:
+1. Start with a brief executive summary (2-3 sentences)
+2. Highlight job performance (completions, delays, overdue work)
+3. Comment on resource and expense trends
+4. Note any significant alerts or anomalies
+5. Provide 2-3 actionable recommendations for management
+6. Use clear, professional language suitable for a manager
+
+OPERATIONAL DATA:
+{json.dumps(data, indent=2, cls=DecimalEncoder)}
+
+Write the report in plain paragraphs (no markdown headers). Be concise but insightful.
+"""
+
+
+def call_openai_api(prompt: str) -> str:
+    from openai import OpenAI
+    api_key = settings.OPENAI_API_KEY
+    if not api_key:
+        return "[AI report unavailable: OPENAI_API_KEY not set.]"
+    client   = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a professional business intelligence analyst."},
+            {"role": "user",   "content": prompt},
+        ],
+        max_tokens=800,
+        temperature=0.5,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def generate_report(period_start: date, period_end: date,
+                    generated_by=None, report_type=None) -> 'Report':
+    from core.models import Report
+    if report_type is None:
+        report_type = Report.ReportType.ON_DEMAND
+    data         = aggregate_operational_data(period_start, period_end)
+    prompt       = build_prompt(data)
+    summary_text = call_openai_api(prompt)
+    return Report.objects.create(
+        period_start=period_start, period_end=period_end,
+        generated_by=generated_by, report_type=report_type,
+        summary_text=summary_text,
+        raw_data_snapshot=json.loads(json.dumps(data, cls=DecimalEncoder)),
+    )
+
+
+def generate_weekly_report_auto():
+    from core.models import Report
+    today        = timezone.now().date()
+    period_end   = today - timedelta(days=1)
+    period_start = period_end - timedelta(days=6)
+    return generate_report(
+        period_start=period_start, period_end=period_end,
+        generated_by=None, report_type=Report.ReportType.WEEKLY,
+    )

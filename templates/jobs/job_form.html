@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block title %}{{ action }} Job{% endblock %}
+{% block topbar_title %}{{ action }} Job{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:job_list' %}">Jobs</a></li>
+    {% if job %}<li class="breadcrumb-item"><a href="{% url 'core:job_detail' job.pk %}">{{ job.title|truncatechars:25 }}</a></li>{% endif %}
+    <li class="breadcrumb-item active">{{ action }}</li>
+  </ol>
+</nav>
+
+<div class="page-header">
+  <div>
+    <h1>{{ action }} Job</h1>
+    <p>{% if action == 'Create' %}Register a new work order{% else %}Update job details{% endif %}</p>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+    <div class="card">
+      <div class="card-header"><h6><i class="bi bi-briefcase me-2 text-muted"></i>Job Information</h6></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="row g-3">
+
+            <!-- Title -->
+            <div class="col-12">
+              <label class="form-label">Job Title <span class="text-danger">*</span></label>
+              <input type="text" name="title" class="form-control"
+                     value="{{ job.title|default:'' }}" placeholder="e.g. Business Card Printing for ABC Ltd" required />
+            </div>
+
+            <!-- Service Type -->
+            <div class="col-sm-6">
+              <label class="form-label">Service Type <span class="text-danger">*</span></label>
+              <select name="service_type" class="form-select" required>
+                {% for val, label in service_type_choices %}
+                <option value="{{ val }}" {% if job and job.service_type == val %}selected{% elif not job and val == 'general' %}selected{% endif %}>
+                  {{ label }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Department + Assigned To -->
+            <div class="col-sm-6">
+              <label class="form-label">Department <span class="text-danger">*</span></label>
+              <select name="department" class="form-select" required>
+                <option value="">Select department...</option>
+                {% for dept in departments %}
+                <option value="{{ dept.pk }}" {% if job and job.department_id == dept.pk %}selected{% endif %}>
+                  {{ dept.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Assign To</label>
+              <select name="assigned_to" class="form-select">
+                <option value="">Unassigned</option>
+                {% for staff in staff_users %}
+                <option value="{{ staff.pk }}" {% if job and job.assigned_to_id == staff.pk %}selected{% endif %}>
+                  {{ staff.get_full_name|default:staff.username }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Client -->
+            <div class="col-sm-6">
+              <label class="form-label">Client Name</label>
+              <input type="text" name="client_name" class="form-control"
+                     value="{{ job.client_name|default:'' }}" placeholder="Optional" />
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Client Contact</label>
+              <input type="text" name="client_contact" class="form-control"
+                     value="{{ job.client_contact|default:'' }}" placeholder="Phone or email" />
+            </div>
+
+            <!-- Priority + Price -->
+            <div class="col-sm-6">
+              <label class="form-label">Priority</label>
+              <select name="priority" class="form-select">
+                {% for val, label in priority_choices %}
+                <option value="{{ val }}" {% if job and job.priority == val %}selected{% elif not job and val == 'medium' %}selected{% endif %}>
+                  {{ label }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Quoted Price / Budget (GHS)</label>
+              <input type="number" name="price" class="form-control" step="0.01" min="0"
+                     value="{{ job.price|default:'' }}" placeholder="0.00" />
+              <div class="form-text">Used for abnormal expense alerts</div>
+            </div>
+
+            <!-- Dates -->
+            <div class="col-sm-6">
+              <label class="form-label">Start Date</label>
+              <input type="date" name="start_date" class="form-control"
+                     value="{{ job.start_date|date:'Y-m-d'|default:'' }}" />
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Due Date</label>
+              <input type="date" name="due_date" class="form-control"
+                     value="{{ job.due_date|date:'Y-m-d'|default:'' }}" />
+            </div>
+
+            <!-- Description -->
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              <textarea name="description" class="form-control" rows="4"
+                        placeholder="Job details, special instructions, scope of work...">{{ job.description|default:'' }}</textarea>
+            </div>
+
+          </div>
+
+          <!-- Form actions -->
+          <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+            {% if job %}
+            <a href="{% url 'core:job_detail' job.pk %}" class="btn btn-outline-secondary">Cancel</a>
+            {% else %}
+            <a href="{% url 'core:job_list' %}" class="btn btn-outline-secondary">Cancel</a>
+            {% endif %}
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg me-1"></i>{{ action }} Job
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

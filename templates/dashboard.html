@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+
+{% block topbar_actions %}
+{% if user.role in 'super_admin,manager' %}
+<a href="{% url 'core:run_checks' %}" class="btn btn-sm btn-outline-secondary">
+  <i class="bi bi-arrow-repeat me-1"></i>Run Alert Checks
+</a>
+<a href="{% url 'core:generate_report' %}" class="btn btn-sm btn-primary">
+  <i class="bi bi-stars me-1"></i>Generate Report
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Good day, {{ user.first_name|default:user.username }} 👋</h1>
+    <p>Here's what's happening across operations today — {{ now|date:"l, j F Y" }}</p>
+  </div>
+</div>
+
+<!-- Stat Cards Row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="stat-card amber">
+      <div class="stat-label">Total Jobs</div>
+      <div class="stat-value">{{ total_jobs }}</div>
+      <i class="bi bi-briefcase stat-icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card info">
+      <div class="stat-label">In Progress</div>
+      <div class="stat-value">{{ in_progress_jobs }}</div>
+      <i class="bi bi-arrow-repeat stat-icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card success">
+      <div class="stat-label">Completed</div>
+      <div class="stat-value">{{ completed_jobs }}</div>
+      <i class="bi bi-check-circle stat-icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card danger">
+      <div class="stat-label">Overdue</div>
+      <div class="stat-value">{{ overdue_jobs }}</div>
+      <i class="bi bi-exclamation-triangle stat-icon"></i>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Recent Jobs -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        <h6><i class="bi bi-briefcase me-2 text-muted"></i>Recent Jobs</h6>
+        <a href="{% url 'core:job_list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Job</th>
+              <th>Department</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Due</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for job in recent_jobs %}
+            <tr>
+              <td>
+                <a href="{% url 'core:job_detail' job.pk %}" class="fw-500 text-decoration-none text-dark">
+                  {{ job.title|truncatechars:40 }}
+                </a>
+                {% if job.client_name %}<div class="text-muted" style="font-size:11.5px;">{{ job.client_name }}</div>{% endif %}
+              </td>
+              <td><span class="text-muted">{{ job.department }}</span></td>
+              <td><span class="badge-status badge-{{ job.priority }}">{{ job.get_priority_display }}</span></td>
+              <td><span class="badge-status badge-{{ job.status }}">{{ job.get_status_display }}</span></td>
+              <td>
+                {% if job.due_date %}
+                  {% if job.is_overdue %}
+                    <span class="text-danger fw-500">{{ job.due_date|date:"d M" }}</span>
+                  {% else %}
+                    <span class="text-muted">{{ job.due_date|date:"d M" }}</span>
+                  {% endif %}
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No jobs found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right column -->
+  <div class="col-lg-4 d-flex flex-column gap-3">
+
+    <!-- Unresolved Alerts -->
+    <div class="card">
+      <div class="card-header">
+        <h6><i class="bi bi-bell me-2 text-muted"></i>Active Alerts
+          {% if alert_count > 0 %}<span class="badge bg-danger ms-1" style="font-size:10px;">{{ alert_count }}</span>{% endif %}
+        </h6>
+        <a href="{% url 'core:alert_list' %}" class="btn btn-sm btn-outline-secondary">All</a>
+      </div>
+      <div class="card-body p-0">
+        {% for alert in unresolved_alerts %}
+        <div class="d-flex align-items-start gap-3 px-4 py-3 border-bottom">
+          <div class="mt-1">
+            {% if alert.severity == 'critical' %}
+              <i class="bi bi-exclamation-octagon-fill text-danger"></i>
+            {% elif alert.severity == 'warning' %}
+              <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+            {% else %}
+              <i class="bi bi-info-circle-fill text-info"></i>
+            {% endif %}
+          </div>
+          <div style="min-width:0;">
+            <div style="font-size:12.5px; font-weight:500;">{{ alert.get_alert_type_display }}</div>
+            <div class="text-muted" style="font-size:12px; line-height:1.4;">{{ alert.message|truncatechars:70 }}</div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="empty-state py-4">
+          <i class="bi bi-check-circle text-success" style="font-size:28px; opacity:1;"></i>
+          <p class="mt-2 mb-0" style="font-size:13px;">All clear — no active alerts</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Low Stock (Managers only) -->
+    {% if user.role in 'super_admin,manager' and low_stock_resources %}
+    <div class="card">
+      <div class="card-header">
+        <h6><i class="bi bi-box-seam me-2 text-muted"></i>Low Stock</h6>
+        <a href="{% url 'core:resource_list' %}" class="btn btn-sm btn-outline-secondary">View</a>
+      </div>
+      <div class="card-body p-0">
+        {% for res in low_stock_resources %}
+        <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom">
+          <div>
+            <div style="font-size:13px; font-weight:500;">{{ res.title }}</div>
+            <div class="text-muted" style="font-size:12px;">{{ res.quantity }} {{ res.unit }} remaining</div>
+          </div>
+          <span class="badge-status badge-warning">Reorder</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

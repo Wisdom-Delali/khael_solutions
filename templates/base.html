@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Khael Solutions{% endblock %} — Operations System</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+<div id="wrapper">
+
+  <!-- ── Sidebar ─────────────────────────────────── -->
+  <nav id="sidebar">
+    <div class="sidebar-brand">
+      <a href="{% url 'core:dashboard' %}" class="brand-logo">
+        <div class="brand-icon">K</div>
+        <div>
+          <div class="brand-name">Khael <span>Solutions</span></div>
+          <div class="brand-sub">Operations System</div>
+        </div>
+      </a>
+    </div>
+
+    <div class="sidebar-nav">
+      <ul class="list-unstyled mb-0">
+
+        <!-- Main -->
+        <li class="nav-item">
+          <a href="{% url 'core:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            <i class="bi bi-grid-1x2"></i> Dashboard
+          </a>
+        </li>
+
+        <div class="nav-section-label">Operations</div>
+        <li class="nav-item">
+          <a href="{% url 'core:job_list' %}" class="{% if 'job' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-briefcase"></i> Jobs
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'core:resource_list' %}" class="{% if 'resource' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-box-seam"></i> Resources
+          </a>
+        </li>
+
+        {% if user.role in 'super_admin,manager' %}
+        <li class="nav-item">
+          <a href="{% url 'core:purchase_list' %}" class="{% if 'purchase' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-cart3"></i> Purchases
+          </a>
+        </li>
+        {% endif %}
+
+        <li class="nav-item">
+          <a href="{% url 'core:alert_list' %}" class="{% if 'alert' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-bell"></i> Alerts
+            {% if alert_count > 0 %}
+              <span class="nav-badge">{{ alert_count }}</span>
+            {% endif %}
+          </a>
+        </li>
+
+        {% if user.role in 'super_admin,manager' %}
+        <div class="nav-section-label">Intelligence</div>
+        <li class="nav-item">
+          <a href="{% url 'core:report_list' %}" class="{% if 'report' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-graph-up-arrow"></i> BI Reports
+          </a>
+        </li>
+        {% endif %}
+
+        {% if user.role in 'super_admin,manager' %}
+        <div class="nav-section-label">Admin</div>
+        <li class="nav-item">
+          <a href="{% url 'core:user_list' %}" class="{% if 'user' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-people"></i> Users
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'core:department_list' %}" class="{% if 'department' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-diagram-3"></i> Departments
+          </a>
+        </li>
+        {% endif %}
+
+      </ul>
+    </div>
+
+    <!-- User footer -->
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}</div>
+      <div class="user-info">
+        <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
+        <div class="user-role">{{ user.get_role_display }}</div>
+      </div>
+      <form method="post" action="{% url 'core:logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="logout-btn" title="Logout">
+          <i class="bi bi-box-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </nav>
+
+  <!-- Overlay for mobile -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- ── Main Content ─────────────────────────────── -->
+  <div id="main-content">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarToggle">
+          <i class="bi bi-list"></i>
+        </button>
+        <span class="topbar-title">{% block topbar_title %}{% endblock %}</span>
+      </div>
+      <div class="topbar-actions">
+        {% block topbar_actions %}{% endblock %}
+        <a href="{% url 'core:alert_list' %}" class="position-relative text-muted" style="font-size:18px; text-decoration:none;">
+          <i class="bi bi-bell"></i>
+          {% if alert_count > 0 %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:9px;">{{ alert_count }}</span>
+          {% endif %}
+        </a>
+      </div>
+    </div>
+
+    <!-- Flash messages -->
+    {% if messages %}
+    <div class="px-4 pt-3">
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Page content -->
+    <div class="page-body">
+      {% block content %}{% endblock %}
+    </div>
+
+  </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+{% load static %}
+<script src="{% static 'js/main.js' %}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

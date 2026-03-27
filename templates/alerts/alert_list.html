@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}Alerts{% endblock %}
+{% block topbar_title %}Alerts{% endblock %}
+{% block topbar_actions %}
+{% if user.role in 'super_admin,manager' %}
+<form method="post" action="{% url 'core:run_checks' %}">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-repeat me-1"></i>Run Checks
+  </button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Alerts <span class="badge bg-danger ms-1" style="font-size:14px; vertical-align:middle;">{{ unresolved_count }}</span></h1>
+    <p>Automated anomaly detection — rule-based monitoring across all operations</p>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-12 col-sm-4 col-md-3">
+        <label class="form-label">Status</label>
+        <select name="resolved" class="form-select form-select-sm">
+          <option value="" {% if not selected_resolved %}selected{% endif %}>All</option>
+          <option value="false" {% if selected_resolved == 'false' %}selected{% endif %}>Unresolved</option>
+          <option value="true"  {% if selected_resolved == 'true'  %}selected{% endif %}>Resolved</option>
+        </select>
+      </div>
+      <div class="col-12 col-sm-4 col-md-3">
+        <label class="form-label">Type</label>
+        <select name="type" class="form-select form-select-sm">
+          <option value="">All Types</option>
+          {% for val, label in alert_types %}
+          <option value="{{ val }}" {% if selected_type == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-sm-4 col-md-3">
+        <label class="form-label">Severity</label>
+        <select name="severity" class="form-select form-select-sm">
+          <option value="">All Severities</option>
+          {% for val, label in severity_choices %}
+          <option value="{{ val }}" {% if selected_severity == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+        <a href="{% url 'core:alert_list' %}" class="btn btn-sm btn-link text-muted">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Alerts -->
+<div class="d-flex flex-column gap-2">
+  {% for alert in alerts %}
+  <div class="card {% if alert.resolved %}opacity-60{% endif %}">
+    <div class="card-body py-3 px-4">
+      <div class="d-flex align-items-start gap-3">
+        <!-- Severity icon -->
+        <div class="mt-1" style="flex-shrink:0;">
+          {% if alert.severity == 'critical' %}
+            <i class="bi bi-exclamation-octagon-fill text-danger" style="font-size:20px;"></i>
+          {% elif alert.severity == 'warning' %}
+            <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size:20px;"></i>
+          {% else %}
+            <i class="bi bi-info-circle-fill text-info" style="font-size:20px;"></i>
+          {% endif %}
+        </div>
+
+        <!-- Content -->
+        <div style="flex:1; min-width:0;">
+          <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <span class="fw-600" style="font-size:14px;">{{ alert.get_alert_type_display }}</span>
+            <span class="badge-status badge-{{ alert.severity }}">{{ alert.get_severity_display }}</span>
+            {% if alert.resolved %}<span class="badge-status badge-completed"><i class="bi bi-check-circle me-1"></i>Resolved</span>{% endif %}
+          </div>
+          <p class="mb-1" style="font-size:13.5px; line-height:1.5;">{{ alert.message }}</p>
+          <div style="font-size:12px; color:var(--text-muted);">
+            <i class="bi bi-clock me-1"></i>{{ alert.created_at|date:"d M Y, H:i" }}
+            {% if alert.job %} · <a href="{% url 'core:job_detail' alert.job.pk %}" class="text-muted">Job #{{ alert.job.pk }}: {{ alert.job.title|truncatechars:30 }}</a>{% endif %}
+            {% if alert.resource %} · Resource: {{ alert.resource.title }}{% endif %}
+            {% if alert.resolved and alert.resolved_by %} · Resolved by {{ alert.resolved_by.get_full_name|default:alert.resolved_by.username }}{% endif %}
+          </div>
+        </div>
+
+        <!-- Actions -->
+        {% if not alert.resolved and user.role in 'super_admin,manager' %}
+        <div style="flex-shrink:0;">
+          <form method="post" action="{% url 'core:alert_resolve' alert.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-check-lg me-1"></i>Resolve
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="card">
+    <div class="empty-state">
+      <i class="bi bi-shield-check text-success" style="font-size:40px; opacity:1;"></i>
+      <p class="mt-2">No alerts found matching your filters.</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
