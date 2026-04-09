@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block title %}{{ client.name }}{% endblock %}
+{% block topbar_title %}Client Detail{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:client_list' %}">Clients</a></li>
+    <li class="breadcrumb-item active">{{ client.name }}</li>
+  </ol>
+</nav>
+
+<div class="page-header">
+  <div>
+    <h1>{{ client.name }}</h1>
+    <p>
+      {% if client.no_phone %}
+        <span class="badge bg-secondary me-1">No Phone</span>
+      {% else %}
+        <i class="bi bi-telephone me-1 text-muted"></i>{{ client.phone }}
+      {% endif %}
+      &nbsp;·&nbsp; {{ job_count }} job{{ job_count|pluralize }}
+    </p>
+  </div>
+  {% if user.role == 'super_admin' %}
+  <div class="page-actions">
+    <a href="{% url 'core:client_edit' client.phone %}" class="btn btn-primary">
+      <i class="bi bi-pencil me-1"></i>Edit Client
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3">
+    <div class="stat-card amber">
+      <div class="stat-label">Total Jobs</div>
+      <div class="stat-value">{{ job_count }}</div>
+      <i class="bi bi-briefcase stat-icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card success">
+      <div class="stat-label">Total Paid</div>
+      <div class="stat-value" style="font-size:18px;">GHS {{ total_paid }}</div>
+      <i class="bi bi-cash-coin stat-icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card info">
+      <div class="stat-label">Quoted Revenue</div>
+      <div class="stat-value" style="font-size:18px;">GHS {{ total_revenue }}</div>
+      <i class="bi bi-tag stat-icon"></i>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card" style="background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff;">
+      <div class="stat-label" style="color:rgba(255,255,255,.75);">Since</div>
+      <div class="stat-value" style="font-size:18px; color:#fff;">{{ client.created_at|date:"M Y" }}</div>
+      <i class="bi bi-calendar stat-icon" style="color:rgba(255,255,255,.18);"></i>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h6><i class="bi bi-briefcase me-2 text-muted"></i>Jobs</h6>
+  </div>
+  {% if jobs %}
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Department</th>
+          <th>Service</th>
+          <th>Status</th>
+          <th>Priority</th>
+          <th>Quoted</th>
+          <th>Paid</th>
+          <th>Due</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td>
+            <a href="{% url 'core:job_detail' job.pk %}" class="fw-500 text-decoration-none text-dark">
+              {{ job.title|truncatechars:45 }}
+            </a>
+          </td>
+          <td class="text-muted">{{ job.department }}</td>
+          <td class="text-muted">{{ job.get_service_type_display }}</td>
+          <td><span class="badge-status badge-{{ job.status }}">{{ job.get_status_display }}</span></td>
+          <td><span class="badge-status badge-{{ job.priority }}">{{ job.get_priority_display }}</span></td>
+          <td class="text-muted">{% if job.price %}GHS {{ job.price }}{% else %}—{% endif %}</td>
+          <td>
+            {% with paid=job.total_paid %}
+              {% if paid %}
+                <span class="{% if job.price and paid >= job.price %}text-success fw-500{% endif %}">
+                  GHS {{ paid }}
+                </span>
+              {% else %}—{% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            {% if job.due_date %}
+              {% if job.is_overdue %}
+                <span class="text-danger fw-500">{{ job.due_date|date:"d M Y" }}</span>
+              {% else %}
+                <span class="text-muted">{{ job.due_date|date:"d M Y" }}</span>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <a href="{% url 'core:job_detail' job.pk %}" class="btn btn-sm btn-outline-secondary">Open</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-briefcase"></i>
+    <p>No jobs found for this client.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -485,6 +485,120 @@ def generate_report(period_start: date, period_end: date,
     )
 
 
+# ══════════════════════════════════════════════════════════
+# 5. SMS & RECEIPT SERVICE
+# ══════════════════════════════════════════════════════════
+
+def send_sms(content, number):
+    """Send SMS via SMSOnlineGH API. Auth token read from settings.SMSONLINE_API_KEY."""
+    import http.client
+    # Strip or replace non-ASCII characters that SMS gateways may reject
+    content = content.encode('ascii', errors='replace').decode('ascii')
+    headers = {
+        'Host': 'api.smsonlinegh.com',
+        'Authorization': f'key {settings.SMSONLINE_API_KEY}',
+        'Content-Type': 'application/xml; charset=utf-8',
+    }
+    payload = (
+        "<request><messages><message>"
+        f"<text>{content}</text>"
+        "<type>0</type>"
+        f"<sender>{settings.SMS_SENDER_ID}</sender>"
+        "<destinations><item>"
+        f"<to>{number}</to>"
+        "</item></destinations>"
+        "</message></messages></request>"
+    )
+    conn = http.client.HTTPSConnection("api.smsonlinegh.com")
+    conn.request("POST", "/v4/message/sms/send", payload, headers)
+    res = conn.getresponse()
+    return res.read().decode("utf-8")
+
+
+def generate_receipt_pdf(payment):
+    """Generate a PDF receipt for a Payment. Returns a BytesIO buffer."""
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable,
+    )
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=2 * cm, leftMargin=2 * cm,
+        topMargin=2 * cm, bottomMargin=2 * cm,
+    )
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Header
+    title_style = ParagraphStyle(
+        'CustomTitle', parent=styles['Title'], fontSize=20, spaceAfter=4,
+    )
+    story.append(Paragraph("G A SARPONG", title_style))
+    story.append(Paragraph("Payment Receipt", styles['Heading2']))
+    story.append(HRFlowable(width="100%", thickness=1, color=colors.grey))
+    story.append(Spacer(1, 0.5 * cm))
+
+    job = payment.job
+    receipt = payment.receipt
+    desc = job.description or '—'
+    if len(desc) > 120:
+        desc = desc[:120] + '...'
+
+    data = [
+        ["Receipt No:",      str(receipt.uuid)[:8].upper()],
+        ["Date:",            payment.payment_date.strftime("%d %B %Y")],
+        ["Client Name:",     job.client_name or '—'],
+        ["Client Contact:",  job.client_contact or '—'],
+        ["Job Title:",       job.title],
+        ["Description:",     desc],
+        ["Payment Method:",  payment.get_payment_method_display()],
+        ["Reference:",       payment.reference or '—'],
+        ["Amount Paid:",     f"GHS {payment.amount}"],
+    ]
+
+    table = Table(data, colWidths=[5 * cm, 12 * cm])
+    table.setStyle(TableStyle([
+        ('FONTNAME',     (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME',     (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE',     (0, 0), (-1, -1), 11),
+        ('TEXTCOLOR',    (0, 0), (0, -1), colors.HexColor('#6c757d')),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+        ('BOX',          (0, 0), (-1, -1), 0.5, colors.HexColor('#dee2e6')),
+        ('INNERGRID',    (0, 0), (-1, -1), 0.25, colors.HexColor('#dee2e6')),
+        ('TOPPADDING',   (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 8),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 10),
+        # Highlight amount row
+        ('BACKGROUND',   (0, -1), (-1, -1), colors.HexColor('#d1fae5')),
+        ('FONTNAME',     (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE',     (0, -1), (-1, -1), 13),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 1 * cm))
+
+    if payment.notes:
+        story.append(Paragraph(f"<b>Notes:</b> {payment.notes}", styles['Normal']))
+        story.append(Spacer(1, 0.5 * cm))
+
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#dee2e6')))
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph("Thank you for your payment.", styles['Normal']))
+    story.append(Paragraph(
+        f"Generated: {timezone.now().strftime('%d %B %Y at %H:%M')}",
+        styles['Normal'],
+    ))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
 def generate_weekly_report_auto():
     from core.models import Report
     today        = timezone.now().date()

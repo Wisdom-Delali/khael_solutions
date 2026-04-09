@@ -11,13 +11,16 @@ Sections:
   7. Payment Views
   8. Report Views
 """
+import uuid as uuid_module
 from decimal import Decimal
 from datetime import date, timedelta
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -25,8 +28,9 @@ from django.views import View
 from core.models import (
     User, Department, DepartmentMember,
     Job, Resource, Purchase, Alert, Payment, Report,
+    Client, Receipt,
 )
-from core.permissions import ManagerRequiredMixin, StaffRequiredMixin
+from core.permissions import ManagerRequiredMixin, StaffRequiredMixin, SuperAdminRequiredMixin
 from core.services import (
     # Job
     get_jobs_for_user, create_job, update_job_status, edit_job, get_job_timeline,
@@ -39,6 +43,8 @@ from core.services import (
     check_overdue_payment_alert,
     # Report
     generate_report,
+    # SMS & receipts
+    send_sms, generate_receipt_pdf,
 )
 
 
@@ -246,6 +252,7 @@ class DashboardView(View):
                 due_date__lt=now.date(),
                 status__in=[Job.Status.PENDING, Job.Status.IN_PROGRESS]
             ).count(),
+            'client_count':        Client.objects.count() if user.role in ['super_admin', 'manager'] else 0,
             'unresolved_alerts':   Alert.objects.filter(resolved=False).order_by('-created_at')[:5],
             'low_stock_resources': low_stock,
             'recent_jobs':         all_jobs.select_related('department', 'assigned_to').order_by('-created_at')[:8],
@@ -317,14 +324,18 @@ class JobCreateView(View):
             assigned_id  = request.POST.get('assigned_to')
             assigned_to  = get_object_or_404(User, pk=assigned_id) if assigned_id else None
 
+            client_name    = request.POST.get('client_name', '').strip()
+            client_contact = request.POST.get('client_contact', '').strip()
+            _sync_client(client_name, client_contact)
+
             job = create_job(
                 title=request.POST.get('title', '').strip(),
                 department=dept,
                 created_by=request.user,
                 description=request.POST.get('description', '').strip(),
                 assigned_to=assigned_to,
-                client_name=request.POST.get('client_name', '').strip(),
-                client_contact=request.POST.get('client_contact', '').strip(),
+                client_name=client_name,
+                client_contact=client_contact,
                 priority=request.POST.get('priority', Job.Priority.MEDIUM),
                 service_type=request.POST.get('service_type', Job.ServiceType.GENERAL),
                 price=request.POST.get('price') or None,
@@ -377,14 +388,17 @@ class JobEditView(View):
     def post(self, request, pk):
         job = get_object_or_404(get_jobs_for_user(request.user), pk=pk)
         try:
-            assigned_id = request.POST.get('assigned_to')
-            assigned_to = get_object_or_404(User, pk=assigned_id) if assigned_id else None
+            assigned_id    = request.POST.get('assigned_to')
+            assigned_to    = get_object_or_404(User, pk=assigned_id) if assigned_id else None
+            client_name    = request.POST.get('client_name', job.client_name).strip()
+            client_contact = request.POST.get('client_contact', job.client_contact).strip()
+            _sync_client(client_name, client_contact)
             edit_job(
                 job=job, updated_by=request.user,
                 title=request.POST.get('title', job.title).strip(),
                 description=request.POST.get('description', job.description).strip(),
-                client_name=request.POST.get('client_name', job.client_name).strip(),
-                client_contact=request.POST.get('client_contact', job.client_contact).strip(),
+                client_name=client_name,
+                client_contact=client_contact,
                 priority=request.POST.get('priority', job.priority),
                 service_type=request.POST.get('service_type', job.service_type),
                 price=request.POST.get('price') or None,
@@ -638,7 +652,7 @@ class PaymentCreateView(ManagerRequiredMixin, View):
     def post(self, request, job_pk):
         job = get_object_or_404(Job, pk=job_pk)
         try:
-            Payment.objects.create(
+            payment = Payment.objects.create(
                 job=job,
                 amount=Decimal(request.POST.get('amount')),
                 payment_date=request.POST.get('payment_date'),
@@ -647,6 +661,7 @@ class PaymentCreateView(ManagerRequiredMixin, View):
                 notes=request.POST.get('notes', '').strip(),
                 recorded_by=request.user,
             )
+            Receipt.objects.create(payment=payment)
             check_overdue_payment_alert(job)
             messages.success(request, f'Payment recorded for job "{job.title}".')
         except Exception as e:
@@ -704,3 +719,191 @@ class GenerateReportView(ManagerRequiredMixin, View):
         except Exception as e:
             messages.error(request, f'Report generation failed: {e}')
             return redirect('core:generate_report')
+
+
+# ══════════════════════════════════════════════════════════
+# 9. RECEIPT VIEWS
+# ══════════════════════════════════════════════════════════
+
+@method_decorator(login_required, name='dispatch')
+class ReceiptDownloadView(View):
+    """Download a PDF receipt for a payment."""
+    def get(self, request, payment_pk):
+        payment = get_object_or_404(Payment, pk=payment_pk)
+        receipt, _ = Receipt.objects.get_or_create(payment=payment)
+        buffer = generate_receipt_pdf(payment)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = (
+            f'attachment; filename="receipt_{str(receipt.uuid)[:8].upper()}.pdf"'
+        )
+        return response
+
+
+class ReceiptSendSMSView(ManagerRequiredMixin, View):
+    """Send an SMS to the client with a link to view their receipt online."""
+    def post(self, request, payment_pk):
+        payment = get_object_or_404(Payment, pk=payment_pk)
+        phone = payment.job.client_contact
+        if not phone:
+            messages.error(request, 'No client contact number on this job.')
+            return redirect('core:job_detail', pk=payment.job.pk)
+
+        receipt, _ = Receipt.objects.get_or_create(payment=payment)
+        receipt_url = request.build_absolute_uri(
+            reverse('core:receipt_public', kwargs={'receipt_uuid': str(receipt.uuid)})
+        )
+        client_name = payment.job.client_name or 'Customer'
+        content = (
+            f"Dear {client_name}, your payment of GHS {payment.amount} "
+            f"for {payment.job.title} has been received. "
+            f"View receipt: {receipt_url}"
+        )
+        try:
+            send_sms(content, phone)
+            messages.success(request, f'Receipt SMS sent to {phone}.')
+        except Exception as e:
+            messages.error(request, f'SMS failed: {e}')
+        return redirect('core:job_detail', pk=payment.job.pk)
+
+
+class ReceiptPublicView(View):
+    """Public UUID-based receipt view — no login required."""
+    template_name = 'receipts/receipt_public.html'
+
+    def get(self, request, receipt_uuid):
+        receipt = get_object_or_404(Receipt, uuid=receipt_uuid)
+        return render(request, self.template_name, {
+            'receipt': receipt,
+            'payment': receipt.payment,
+            'job':     receipt.payment.job,
+        })
+
+
+# ══════════════════════════════════════════════════════════
+# 10. CLIENT VIEWS
+# ══════════════════════════════════════════════════════════
+
+@method_decorator(login_required, name='dispatch')
+class ClientSearchView(View):
+    """JSON endpoint for client name autocomplete on the job form."""
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        if len(q) < 2:
+            return JsonResponse({'clients': []})
+        clients = Client.objects.filter(name__icontains=q)[:10]
+        return JsonResponse({
+            'clients': [
+                {
+                    'phone':    c.phone,
+                    'name':     c.name,
+                    'no_phone': c.no_phone,
+                    'display':  str(c),
+                }
+                for c in clients
+            ]
+        })
+
+
+@method_decorator(login_required, name='dispatch')
+class ClientListView(View):
+    template_name = 'clients/client_list.html'
+
+    def get(self, request):
+        clients = Client.objects.all()
+        q = request.GET.get('q', '').strip()
+        if q:
+            clients = clients.filter(name__icontains=q)
+        no_phone_filter = request.GET.get('no_phone', '')
+        if no_phone_filter == 'true':
+            clients = clients.filter(no_phone=True)
+        elif no_phone_filter == 'false':
+            clients = clients.filter(no_phone=False)
+        return render(request, self.template_name, {
+            'clients':          clients,
+            'q':                q,
+            'no_phone_filter':  no_phone_filter,
+            'total_count':      Client.objects.count(),
+            'no_phone_count':   Client.objects.filter(no_phone=True).count(),
+        })
+
+
+@method_decorator(login_required, name='dispatch')
+class ClientDetailView(View):
+    template_name = 'clients/client_detail.html'
+
+    def get(self, request, phone):
+        client = get_object_or_404(Client, phone=phone)
+        if client.no_phone:
+            jobs = Job.objects.filter(
+                client_name__iexact=client.name, client_contact=''
+            ).select_related('department', 'assigned_to')
+        else:
+            jobs = Job.objects.filter(
+                client_contact=client.phone
+            ).select_related('department', 'assigned_to')
+
+        total_paid    = sum(j.total_paid() for j in jobs)
+        total_revenue = sum(j.price for j in jobs if j.price)
+        return render(request, self.template_name, {
+            'client':        client,
+            'jobs':          jobs,
+            'total_paid':    total_paid,
+            'total_revenue': total_revenue,
+            'job_count':     jobs.count(),
+        })
+
+
+class ClientEditView(SuperAdminRequiredMixin, View):
+    template_name = 'clients/client_edit.html'
+
+    def get(self, request, phone):
+        client = get_object_or_404(Client, phone=phone)
+        return render(request, self.template_name, {'client': client})
+
+    def post(self, request, phone):
+        client = get_object_or_404(Client, phone=phone)
+        new_name  = request.POST.get('name', '').strip()
+        new_phone = request.POST.get('phone', '').strip()
+
+        if not new_name:
+            messages.error(request, 'Client name cannot be empty.')
+            return redirect('core:client_edit', phone=phone)
+
+        # If phone changed (only allowed for non-no_phone clients), recreate with new PK
+        if not client.no_phone and new_phone and new_phone != client.phone:
+            if Client.objects.filter(phone=new_phone).exists():
+                messages.error(request, f'Phone number {new_phone} is already assigned to another client.')
+                return redirect('core:client_edit', phone=phone)
+            Client.objects.create(
+                phone=new_phone,
+                name=new_name,
+                no_phone=False,
+            )
+            client.delete()
+            messages.success(request, 'Client updated.')
+            return redirect('core:client_detail', phone=new_phone)
+
+        client.name = new_name
+        client.save()
+        messages.success(request, 'Client updated.')
+        return redirect('core:client_detail', phone=phone)
+
+
+# ══════════════════════════════════════════════════════════
+# HELPERS
+# ══════════════════════════════════════════════════════════
+
+def _sync_client(name, phone):
+    """Create or update a Client record when a job is saved."""
+    if not name:
+        return
+    if phone:
+        Client.objects.get_or_create(phone=phone, defaults={'name': name})
+    else:
+        # No phone — group under a generated key; deduplicate by exact name
+        if not Client.objects.filter(name__iexact=name, no_phone=True).exists():
+            Client.objects.create(
+                phone=f'NOPH_{uuid_module.uuid4().hex[:8]}',
+                name=name,
+                no_phone=True,
+            )

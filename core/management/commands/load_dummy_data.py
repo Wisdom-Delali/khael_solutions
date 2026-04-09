@@ -10,7 +10,8 @@ from django.utils import timezone
 from core.models import (
     User, Department, DepartmentMember,
     Job, JobUpdate, Resource, ResourceUsage,
-    ResourceHistory, Purchase, PurchaseResource, Alert,
+    ResourceHistory, Purchase, PurchaseResource,
+    Payment, Alert, Client, Receipt,
 )
 
 
@@ -24,8 +25,10 @@ class Command(BaseCommand):
         self.assign_members()
         self.create_resources()
         self.create_purchases()
+        self.create_clients()
         self.create_jobs()
         self.create_resource_usage()
+        self.create_payments()
         self.create_alerts()
         self.stdout.write(self.style.SUCCESS('\n  Dummy data loaded successfully!\n'))
         self.stdout.write('   Superuser login  -> username: admin      password: admin123')
@@ -115,6 +118,26 @@ class Command(BaseCommand):
             total3 += q * c
         p3.purchase_total = total3; p3.save()
 
+    def create_clients(self):
+        self.stdout.write('  Creating clients...')
+        # One Client record per unique phone number across all jobs
+        client_data = [
+            ('0244123456', 'GoldLink Ventures Ltd'),
+            ('0302123789', 'UPSA Events Committee'),
+            ('0201987654', 'Accra Food Festival Org.'),
+            ('0303456789', 'Tema Port Authority'),
+            ('0244765432', 'KBH Private Hospital'),
+            ('0322098765', 'Kumasi Technical University'),
+            ('0302876543', 'Devtraco Properties'),
+            ('0302611000', 'Stanbic Bank Ghana'),
+            ('0302789012', 'Melcom Ghana Ltd'),
+            ('0302681000', 'Ecobank Ghana'),
+            ('0244334455', 'Kasapreko Company Ltd'),
+            ('0244300000', 'MTN Ghana'),
+        ]
+        for phone, name in client_data:
+            Client.objects.create(phone=phone, name=name)
+
     def create_jobs(self):
         self.stdout.write('  Creating jobs...')
         today = timezone.now().date()
@@ -168,6 +191,30 @@ class Command(BaseCommand):
         ResourceUsage.objects.create(job=self.job11, resource=self.sd_card,       quantity=Decimal('2'),  unit_cost=Decimal('55.00'),  recorded_by=self.staff6)
         ResourceUsage.objects.create(job=self.job11, resource=self.backdrop,      quantity=Decimal('1'),  unit_cost=Decimal('175.00'), recorded_by=self.staff6)
         ResourceUsage.objects.create(job=self.job11, resource=self.usb_drive,     quantity=Decimal('2'),  unit_cost=Decimal('25.00'),  recorded_by=self.staff6)
+
+    def create_payments(self):
+        self.stdout.write('  Creating payments and receipts...')
+        # job6 — LAN Setup, completed, fully paid
+        p6 = Payment.objects.create(
+            job=self.job6, amount=Decimal('2200.00'),
+            payment_date=self.job6.completed_at.date(),
+            payment_method='mobile_money', reference='MM-290487',
+            notes='Full payment received on completion.',
+            recorded_by=self.manager2,
+        )
+        Receipt.objects.create(payment=p6)
+
+        # job10 — Corporate Photography, completed, fully paid
+        p10 = Payment.objects.create(
+            job=self.job10, amount=Decimal('1200.00'),
+            payment_date=self.job10.completed_at.date(),
+            payment_method='bank_transfer', reference='BT-881023',
+            notes='Full payment via bank transfer.',
+            recorded_by=self.manager1,
+        )
+        Receipt.objects.create(payment=p10)
+
+        # job1 — Business Cards, completed, no payment (drives overdue_payment alert)
 
     def create_alerts(self):
         self.stdout.write('  Creating alerts...')

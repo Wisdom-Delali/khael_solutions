@@ -66,6 +66,11 @@
         {% endif %}
 
         <li class="nav-item">
+          <a href="{% url 'core:client_list' %}" class="{% if 'client' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-person-lines-fill"></i> Clients
+          </a>
+        </li>
+        <li class="nav-item">
           <a href="{% url 'core:alert_list' %}" class="{% if 'alert' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-bell"></i> Alerts
             {% if alert_count > 0 %}

@@ -25,9 +25,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-g!az+bdvjpznjof-^_^-qq=61(yk@)&ms21dpn^%4$3$rthio*'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -130,6 +130,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # OpenAI API Key — set via environment variable in production
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+
+# SMSONLINE — set via environment variable in production
+SMSONLINE_API_KEY = os.environ.get('SMSONLINE_API_KEY', '')
+SMS_SENDER_ID = 'G A SARPONG'  # Set your desired sender ID here
+
 
 # Global expense cap for abnormal expense alerts (GHS)
 GLOBAL_EXPENSE_CAP = 5000.00

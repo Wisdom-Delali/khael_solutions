@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}Clients{% endblock %}
+{% block topbar_title %}Clients{% endblock %}
+
+{% block topbar_actions %}
+<span class="text-muted" style="font-size:13px;">{{ total_count }} total &nbsp;·&nbsp; {{ no_phone_count }} without phone</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Client Database</h1>
+    <p>All clients across jobs — click a client to view their history.</p>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+      <input type="text" name="q" value="{{ q }}" placeholder="Search by name…"
+             class="form-control form-control-sm" style="max-width:220px;" />
+      <select name="no_phone" class="form-select form-select-sm" style="max-width:180px;">
+        <option value="">All clients</option>
+        <option value="false" {% if no_phone_filter == 'false' %}selected{% endif %}>With phone</option>
+        <option value="true"  {% if no_phone_filter == 'true'  %}selected{% endif %}>No phone (group)</option>
+      </select>
+      <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+      {% if q or no_phone_filter %}
+      <a href="{% url 'core:client_list' %}" class="btn btn-sm btn-outline-secondary">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  {% if clients %}
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Added</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for client in clients %}
+        <tr style="cursor:pointer;" onclick="window.location='{% url 'core:client_detail' client.phone %}'">
+          <td>
+            <div class="fw-500">{{ client.name }}</div>
+            {% if client.no_phone %}
+            <span class="badge bg-secondary" style="font-size:10px;">No Phone</span>
+            {% endif %}
+          </td>
+          <td class="text-muted">{{ client.display_phone }}</td>
+          <td class="text-muted">{{ client.created_at|date:"d M Y" }}</td>
+          <td class="text-end">
+            <a href="{% url 'core:client_detail' client.phone %}" class="btn btn-sm btn-outline-secondary">
+              View
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-person-lines-fill"></i>
+    <p>No clients found{% if q %} matching "{{ q }}"{% endif %}.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

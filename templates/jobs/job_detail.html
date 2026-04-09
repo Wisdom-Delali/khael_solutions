@@ -150,7 +150,7 @@
       <div class="table-responsive">
         <table class="table mb-0">
           <thead>
-            <tr><th>Date</th><th>Amount</th><th>Method</th><th>Reference</th><th>Recorded By</th></tr>
+            <tr><th>Date</th><th>Amount</th><th>Method</th><th>Reference</th><th>Recorded By</th><th></th></tr>
           </thead>
           <tbody>
             {% for p in payments %}
@@ -160,12 +160,25 @@
               <td>{{ p.get_payment_method_display }}</td>
               <td class="text-muted">{{ p.reference|default:"—" }}</td>
               <td class="text-muted">{% if p.recorded_by %}{{ p.recorded_by.get_full_name|default:p.recorded_by.username }}{% else %}—{% endif %}</td>
+              <td style="white-space:nowrap;">
+                <a href="{% url 'core:receipt_pdf' p.pk %}" class="btn btn-xs btn-outline-secondary" style="font-size:12px; padding:2px 8px;" title="Download PDF Receipt">
+                  <i class="bi bi-file-earmark-pdf me-1"></i>Receipt
+                </a>
+                {% if job.client_contact %}
+                <form method="post" action="{% url 'core:receipt_sms' p.pk %}" class="d-inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-xs btn-outline-primary" style="font-size:12px; padding:2px 8px;" title="Send SMS to {{ job.client_contact }}">
+                    <i class="bi bi-phone me-1"></i>SMS
+                  </button>
+                </form>
+                {% endif %}
+              </td>
             </tr>
             {% endfor %}
             <tr style="background:#f8fafc; font-weight:600;">
               <td colspan="1" class="text-end text-muted" style="font-size:12px; text-transform:uppercase; letter-spacing:.05em;">Total Paid</td>
               <td>GHS {{ total_paid }}</td>
-              <td colspan="3"></td>
+              <td colspan="4"></td>
             </tr>
           </tbody>
         </table>

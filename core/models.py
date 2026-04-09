@@ -10,10 +10,40 @@ Models:
   Alerts         : Alert
   Reporting      : Report
 """
+import uuid
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+
+
+# ══════════════════════════════════════════════════════════
+# CLIENT MODEL
+# ══════════════════════════════════════════════════════════
+
+class Client(models.Model):
+    """
+    Client database. Phone number is the primary key.
+    Clients without phone numbers are stored with a NOPH_<hex> key
+    and grouped via no_phone=True in the UI.
+    """
+    phone      = models.CharField(max_length=50, primary_key=True)
+    name       = models.CharField(max_length=200)
+    no_phone   = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def display_phone(self):
+        return '—' if self.no_phone else self.phone
+
+    def __str__(self):
+        if self.no_phone:
+            return f"{self.name} (No Phone)"
+        return f"{self.name} ({self.phone})"
+
+    class Meta:
+        ordering = ['name']
 
 
 # ══════════════════════════════════════════════════════════
@@ -308,6 +338,23 @@ class Payment(models.Model):
 
     class Meta:
         ordering = ['-payment_date']
+
+
+# ══════════════════════════════════════════════════════════
+# RECEIPT MODEL
+# ══════════════════════════════════════════════════════════
+
+class Receipt(models.Model):
+    """Auto-created when a Payment is recorded. UUID is used for the public link."""
+    uuid       = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    payment    = models.OneToOneField(Payment, on_delete=models.CASCADE, related_name='receipt')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Receipt {str(self.uuid)[:8].upper()} — Job #{self.payment.job.pk}"
+
+    class Meta:
+        ordering = ['-created_at']
 
 
 # ══════════════════════════════════════════════════════════

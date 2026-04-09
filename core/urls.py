@@ -24,6 +24,10 @@ from core.views import (
     PaymentCreateView,
     # Reports
     ReportListView, ReportDetailView, GenerateReportView,
+    # Receipts
+    ReceiptDownloadView, ReceiptSendSMSView, ReceiptPublicView,
+    # Clients
+    ClientSearchView, ClientListView, ClientDetailView, ClientEditView,
 )
 
 app_name = 'core'
@@ -77,4 +81,15 @@ urlpatterns = [
     path('reports/',              ReportListView.as_view(),    name='report_list'),
     path('reports/generate/',     GenerateReportView.as_view(), name='generate_report'),
     path('reports/<int:pk>/',     ReportDetailView.as_view(),  name='report_detail'),
+
+    # ── Receipts ──────────────────────────────────────
+    path('payments/<int:payment_pk>/receipt/pdf/', ReceiptDownloadView.as_view(), name='receipt_pdf'),
+    path('payments/<int:payment_pk>/receipt/sms/', ReceiptSendSMSView.as_view(),  name='receipt_sms'),
+    path('r/<uuid:receipt_uuid>/',                 ReceiptPublicView.as_view(),   name='receipt_public'),
+
+    # ── Clients ───────────────────────────────────────
+    path('clients/search/',             ClientSearchView.as_view(), name='client_search'),
+    path('clients/',                    ClientListView.as_view(),   name='client_list'),
+    path('clients/<str:phone>/',        ClientDetailView.as_view(), name='client_detail'),
+    path('clients/<str:phone>/edit/',   ClientEditView.as_view(),   name='client_edit'),
 ]

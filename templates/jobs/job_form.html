@@ -71,15 +71,17 @@
             </div>
 
             <!-- Client -->
-            <div class="col-sm-6">
+            <div class="col-sm-6" style="position:relative;">
               <label class="form-label">Client Name</label>
-              <input type="text" name="client_name" class="form-control"
-                     value="{{ job.client_name|default:'' }}" placeholder="Optional" />
+              <input type="text" name="client_name" id="clientNameInput" class="form-control"
+                     value="{{ job.client_name|default:'' }}" placeholder="Type to search or enter new…"
+                     autocomplete="off" />
+              <ul id="clientSuggestions" class="list-group" style="display:none; position:absolute; z-index:1000; width:100%; max-height:200px; overflow-y:auto; top:100%; left:0;"></ul>
             </div>
             <div class="col-sm-6">
-              <label class="form-label">Client Contact</label>
-              <input type="text" name="client_contact" class="form-control"
-                     value="{{ job.client_contact|default:'' }}" placeholder="Phone or email" />
+              <label class="form-label">Client Contact (Phone)</label>
+              <input type="text" name="client_contact" id="clientContactInput" class="form-control"
+                     value="{{ job.client_contact|default:'' }}" placeholder="Phone number" />
             </div>
 
             <!-- Priority + Price -->
@@ -137,4 +139,50 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const nameInput = document.getElementById('clientNameInput');
+  const contactInput = document.getElementById('clientContactInput');
+  const suggestions = document.getElementById('clientSuggestions');
+  if (!nameInput) return;
+
+  let debounce;
+  nameInput.addEventListener('input', function () {
+    clearTimeout(debounce);
+    const q = this.value.trim();
+    if (q.length < 2) { suggestions.style.display = 'none'; return; }
+    debounce = setTimeout(() => {
+      fetch(`{% url 'core:client_search' %}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.clients.length) { suggestions.style.display = 'none'; return; }
+          suggestions.innerHTML = data.clients.map(c =>
+            `<li class="list-group-item list-group-item-action" style="cursor:pointer; font-size:13px;"
+                 data-name="${c.name}" data-phone="${c.no_phone ? '' : c.phone}">
+               ${c.name}${c.no_phone ? ' <span class="text-muted">(No Phone)</span>' : ' <span class="text-muted">— ' + c.phone + '</span>'}
+             </li>`
+          ).join('');
+          suggestions.querySelectorAll('li').forEach(li => {
+            li.addEventListener('mousedown', e => {
+              e.preventDefault();
+              nameInput.value = li.dataset.name;
+              contactInput.value = li.dataset.phone;
+              suggestions.style.display = 'none';
+            });
+          });
+          suggestions.style.display = 'block';
+        });
+    }, 280);
+  });
+
+  document.addEventListener('click', e => {
+    if (!nameInput.contains(e.target) && !suggestions.contains(e.target)) {
+      suggestions.style.display = 'none';
+    }
+  });
+})();
+</script>
 {% endblock %}

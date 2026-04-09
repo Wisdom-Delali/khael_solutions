@@ -8,7 +8,7 @@
   <i class="bi bi-arrow-repeat me-1"></i>Run Alert Checks
 </a>
 <a href="{% url 'core:generate_report' %}" class="btn btn-sm btn-primary">
-  <i class="bi bi-stars me-1"></i>Generate Report
+  <i class="bi bi-stars me-1"></i>AI Report
 </a>
 {% endif %}
 {% endblock %}
@@ -23,34 +23,45 @@
 
 <!-- Stat Cards Row -->
 <div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3">
+  <div class="col-6 {% if user.role in 'super_admin,manager' %}col-lg-2{% else %}col-lg-3{% endif %}">
     <div class="stat-card amber">
       <div class="stat-label">Total Jobs</div>
       <div class="stat-value">{{ total_jobs }}</div>
       <i class="bi bi-briefcase stat-icon"></i>
     </div>
   </div>
-  <div class="col-6 col-lg-3">
+  <div class="col-6 {% if user.role in 'super_admin,manager' %}col-lg-2{% else %}col-lg-3{% endif %}">
     <div class="stat-card info">
       <div class="stat-label">In Progress</div>
       <div class="stat-value">{{ in_progress_jobs }}</div>
       <i class="bi bi-arrow-repeat stat-icon"></i>
     </div>
   </div>
-  <div class="col-6 col-lg-3">
+  <div class="col-6 {% if user.role in 'super_admin,manager' %}col-lg-2{% else %}col-lg-3{% endif %}">
     <div class="stat-card success">
       <div class="stat-label">Completed</div>
       <div class="stat-value">{{ completed_jobs }}</div>
       <i class="bi bi-check-circle stat-icon"></i>
     </div>
   </div>
-  <div class="col-6 col-lg-3">
+  <div class="col-6 {% if user.role in 'super_admin,manager' %}col-lg-2{% else %}col-lg-3{% endif %}">
     <div class="stat-card danger">
       <div class="stat-label">Overdue</div>
       <div class="stat-value">{{ overdue_jobs }}</div>
       <i class="bi bi-exclamation-triangle stat-icon"></i>
     </div>
   </div>
+  {% if user.role in 'super_admin,manager' %}
+  <div class="col-6 col-lg-2">
+    <a href="{% url 'core:client_list' %}" class="text-decoration-none">
+      <div class="stat-card" style="background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; cursor:pointer;">
+        <div class="stat-label" style="color:rgba(255,255,255,.75);">Clients</div>
+        <div class="stat-value" style="color:#fff;">{{ client_count }}</div>
+        <i class="bi bi-person-lines-fill stat-icon" style="color:rgba(255,255,255,.18);"></i>
+      </div>
+    </a>
+  </div>
+  {% endif %}
 </div>
 
 <div class="row g-3">
