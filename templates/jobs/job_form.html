@@ -44,9 +44,11 @@
             <div class="col-sm-6">
               <label class="form-label">Department <span class="text-danger">*</span></label>
               <select name="department" class="form-select" required>
-                <option value="">Select department…</option>
+                {% if departments|length != 1 %}<option value="">Select department…</option>{% endif %}
                 {% for dept in departments %}
-                <option value="{{ dept.pk }}" {% if job and job.department_id == dept.pk %}selected{% endif %}>
+                <option value="{{ dept.pk }}"
+                  {% if job and job.department_id == dept.pk %}selected
+                  {% elif not job and departments|length == 1 %}selected{% endif %}>
                   {{ dept.name }}
                 </option>
                 {% endfor %}

@@ -147,11 +147,6 @@ def create_purchase(created_by, items, notes=''):
 def record_resource_usage(job, resource, quantity, recorded_by):
     from core.models import ResourceUsage
     quantity = Decimal(str(quantity))
-    if resource.quantity < quantity:
-        raise ValueError(
-            f"Insufficient stock for '{resource.title}'. "
-            f"Available: {resource.quantity} {resource.unit}, requested: {quantity}."
-        )
     usage = ResourceUsage.objects.create(
         job=job, resource=resource, quantity=quantity,
         unit_cost=resource.unit_cost, recorded_by=recorded_by,
