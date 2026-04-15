@@ -133,7 +133,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 # SMSONLINE — set via environment variable in production
 SMSONLINE_API_KEY = os.environ.get('SMSONLINE_API_KEY', '')
-SMS_SENDER_ID = 'G A SARPONG'  # Set your desired sender ID here
+SMS_SENDER_ID = os.environ.get('SMSONLINE_SMS_SENDER_ID', '')
 
 
 # Global expense cap for abnormal expense alerts (GHS)
