@@ -27,30 +27,24 @@
           {% csrf_token %}
           <div class="row g-3">
 
-            <!-- Title -->
-            <div class="col-12">
+            <!-- ── Required fields ─────────────────────── -->
+            <!-- Title (with job-type autocomplete) -->
+            <div class="col-12" style="position:relative;">
               <label class="form-label">Job Title <span class="text-danger">*</span></label>
-              <input type="text" name="title" class="form-control"
-                     value="{{ job.title|default:'' }}" placeholder="e.g. Business Card Printing for ABC Ltd" required />
+              <input type="text" name="title" id="jobTitleInput" class="form-control"
+                     value="{{ job.title|default:'' }}"
+                     placeholder="e.g. Business Card Printing for ABC Ltd"
+                     autocomplete="off" required />
+              <ul id="jobTypeSuggestions" class="list-group"
+                  style="display:none; position:absolute; z-index:1000; width:100%;
+                         max-height:220px; overflow-y:auto; top:100%; left:0;"></ul>
             </div>
 
-            <!-- Service Type -->
-            <div class="col-sm-6">
-              <label class="form-label">Service Type <span class="text-danger">*</span></label>
-              <select name="service_type" class="form-select" required>
-                {% for val, label in service_type_choices %}
-                <option value="{{ val }}" {% if job and job.service_type == val %}selected{% elif not job and val == 'general' %}selected{% endif %}>
-                  {{ label }}
-                </option>
-                {% endfor %}
-              </select>
-            </div>
-
-            <!-- Department + Assigned To -->
+            <!-- Department -->
             <div class="col-sm-6">
               <label class="form-label">Department <span class="text-danger">*</span></label>
               <select name="department" class="form-select" required>
-                <option value="">Select department...</option>
+                <option value="">Select department…</option>
                 {% for dept in departments %}
                 <option value="{{ dept.pk }}" {% if job and job.department_id == dept.pk %}selected{% endif %}>
                   {{ dept.name }}
@@ -58,70 +52,114 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="col-sm-6">
-              <label class="form-label">Assign To</label>
-              <select name="assigned_to" class="form-select">
-                <option value="">Unassigned</option>
-                {% for staff in staff_users %}
-                <option value="{{ staff.pk }}" {% if job and job.assigned_to_id == staff.pk %}selected{% endif %}>
-                  {{ staff.get_full_name|default:staff.username }}
-                </option>
-                {% endfor %}
-              </select>
-            </div>
 
-            <!-- Client -->
-            <div class="col-sm-6" style="position:relative;">
-              <label class="form-label">Client Name</label>
-              <input type="text" name="client_name" id="clientNameInput" class="form-control"
-                     value="{{ job.client_name|default:'' }}" placeholder="Type to search or enter new…"
-                     autocomplete="off" />
-              <ul id="clientSuggestions" class="list-group" style="display:none; position:absolute; z-index:1000; width:100%; max-height:200px; overflow-y:auto; top:100%; left:0;"></ul>
-            </div>
+            <!-- Quoted Price -->
             <div class="col-sm-6">
-              <label class="form-label">Client Contact (Phone)</label>
-              <input type="text" name="client_contact" id="clientContactInput" class="form-control"
-                     value="{{ job.client_contact|default:'' }}" placeholder="Phone number" />
-            </div>
-
-            <!-- Priority + Price -->
-            <div class="col-sm-6">
-              <label class="form-label">Priority</label>
-              <select name="priority" class="form-select">
-                {% for val, label in priority_choices %}
-                <option value="{{ val }}" {% if job and job.priority == val %}selected{% elif not job and val == 'medium' %}selected{% endif %}>
-                  {{ label }}
-                </option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-sm-6">
-              <label class="form-label">Quoted Price / Budget (GHS)</label>
-              <input type="number" name="price" class="form-control" step="0.01" min="0"
-                     value="{{ job.price|default:'' }}" placeholder="0.00" />
+              <label class="form-label">Quoted Price / Budget (GHS) <span class="text-danger">*</span></label>
+              <input type="number" name="price" id="priceInput" class="form-control"
+                     step="0.01" min="0"
+                     value="{{ job.price|default:'' }}" placeholder="0.00" required />
               <div class="form-text">Used for abnormal expense alerts</div>
             </div>
 
-            <!-- Dates -->
-            <div class="col-sm-6">
-              <label class="form-label">Start Date</label>
-              <input type="date" name="start_date" class="form-control"
-                     value="{{ job.start_date|date:'Y-m-d'|default:'' }}" />
-            </div>
-            <div class="col-sm-6">
-              <label class="form-label">Due Date</label>
-              <input type="date" name="due_date" class="form-control"
-                     value="{{ job.due_date|date:'Y-m-d'|default:'' }}" />
+            <!-- ── Additional details toggle ───────────── -->
+            <div class="col-12 mt-1">
+              <a class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse"
+                 href="#additionalDetails" role="button"
+                 id="additionalToggle"
+                 aria-expanded="false" aria-controls="additionalDetails">
+                <i class="bi bi-chevron-down me-1" id="additionalIcon"></i>Additional Details
+              </a>
             </div>
 
-            <!-- Description -->
-            <div class="col-12">
-              <label class="form-label">Description</label>
-              <textarea name="description" class="form-control" rows="4"
-                        placeholder="Job details, special instructions, scope of work...">{{ job.description|default:'' }}</textarea>
+            <!-- ── Collapsible optional fields ────────── -->
+            <div class="col-12 p-0">
+              <div class="collapse" id="additionalDetails">
+                <div class="row g-3 px-0">
+
+                  <!-- Service Type + Assign To -->
+                  <div class="col-sm-6">
+                    <label class="form-label">Service Type</label>
+                    <select name="service_type" id="serviceTypeSelect" class="form-select">
+                      {% for val, label in service_type_choices %}
+                      <option value="{{ val }}"
+                        {% if job and job.service_type == val %}selected
+                        {% elif not job and val == 'general' %}selected{% endif %}>
+                        {{ label }}
+                      </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label">Assign To</label>
+                    <select name="assigned_to" class="form-select">
+                      <option value="">Unassigned</option>
+                      {% for staff in staff_users %}
+                      <option value="{{ staff.pk }}"
+                        {% if job and job.assigned_to_id == staff.pk %}selected
+                        {% elif not job and staff.pk == request.user.pk %}selected{% endif %}>
+                        {{ staff.get_full_name|default:staff.username }}
+                      </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <!-- Client Name + Contact -->
+                  <div class="col-sm-6" style="position:relative;">
+                    <label class="form-label">Client Name</label>
+                    <input type="text" name="client_name" id="clientNameInput" class="form-control"
+                           value="{{ job.client_name|default:'' }}"
+                           placeholder="Type to search or enter new…"
+                           autocomplete="off" />
+                    <ul id="clientSuggestions" class="list-group"
+                        style="display:none; position:absolute; z-index:1000; width:100%;
+                               max-height:200px; overflow-y:auto; top:100%; left:0;"></ul>
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label">Client Contact (Phone)</label>
+                    <input type="text" name="client_contact" id="clientContactInput" class="form-control"
+                           value="{{ job.client_contact|default:'' }}" placeholder="Phone number" />
+                  </div>
+
+                  <!-- Priority -->
+                  <div class="col-sm-6">
+                    <label class="form-label">Priority</label>
+                    <select name="priority" class="form-select">
+                      {% for val, label in priority_choices %}
+                      <option value="{{ val }}"
+                        {% if job and job.priority == val %}selected
+                        {% elif not job and val == 'medium' %}selected{% endif %}>
+                        {{ label }}
+                      </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-sm-6"></div>
+
+                  <!-- Dates -->
+                  <div class="col-sm-6">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="start_date" class="form-control"
+                           value="{{ job.start_date|date:'Y-m-d'|default:'' }}" />
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label">Due Date</label>
+                    <input type="date" name="due_date" class="form-control"
+                           value="{{ job.due_date|date:'Y-m-d'|default:'' }}" />
+                  </div>
+
+                  <!-- Description -->
+                  <div class="col-12">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" id="descriptionInput" class="form-control" rows="4"
+                              placeholder="Job details, special instructions, scope of work…">{{ job.description|default:'' }}</textarea>
+                  </div>
+
+                </div><!-- /.row -->
+              </div><!-- /.collapse -->
             </div>
 
-          </div>
+          </div><!-- /.row (outer) -->
 
           <!-- Form actions -->
           <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
@@ -144,45 +182,130 @@
 {% block extra_js %}
 <script>
 (function () {
-  const nameInput = document.getElementById('clientNameInput');
-  const contactInput = document.getElementById('clientContactInput');
-  const suggestions = document.getElementById('clientSuggestions');
-  if (!nameInput) return;
 
-  let debounce;
-  nameInput.addEventListener('input', function () {
-    clearTimeout(debounce);
+  // ── Toggle icon rotation ──────────────────────────────
+  const collapseEl = document.getElementById('additionalDetails');
+  const icon = document.getElementById('additionalIcon');
+  collapseEl.addEventListener('show.bs.collapse', () => {
+    icon.classList.replace('bi-chevron-down', 'bi-chevron-up');
+  });
+  collapseEl.addEventListener('hide.bs.collapse', () => {
+    icon.classList.replace('bi-chevron-up', 'bi-chevron-down');
+  });
+
+  // ── Auto-expand if optional fields already have values (edit mode) ──
+  const optionalHasValue = [
+    document.querySelector('[name="service_type"]'),
+    document.querySelector('[name="assigned_to"]'),
+    document.getElementById('clientNameInput'),
+    document.getElementById('clientContactInput'),
+    document.getElementById('priceInput'),
+    document.querySelector('[name="start_date"]'),
+    document.querySelector('[name="due_date"]'),
+    document.getElementById('descriptionInput'),
+  ].some(el => el && el.value && el.value !== '' && el.value !== 'general' && el.value !== 'medium');
+
+  if (optionalHasValue) {
+    const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
+    bsCollapse.show();
+  }
+
+  // ── Job-type title autocomplete ───────────────────────
+  const titleInput      = document.getElementById('jobTitleInput');
+  const typeSuggestions = document.getElementById('jobTypeSuggestions');
+  const serviceSelect   = document.getElementById('serviceTypeSelect');
+  const priceInput      = document.getElementById('priceInput');
+  const descInput       = document.getElementById('descriptionInput');
+
+  let titleDebounce;
+  titleInput.addEventListener('input', function () {
+    clearTimeout(titleDebounce);
     const q = this.value.trim();
-    if (q.length < 2) { suggestions.style.display = 'none'; return; }
-    debounce = setTimeout(() => {
-      fetch(`{% url 'core:client_search' %}?q=${encodeURIComponent(q)}`)
+    if (q.length < 2) { typeSuggestions.style.display = 'none'; return; }
+    titleDebounce = setTimeout(() => {
+      fetch(`{% url 'core:job_type_search' %}?q=${encodeURIComponent(q)}`)
         .then(r => r.json())
         .then(data => {
-          if (!data.clients.length) { suggestions.style.display = 'none'; return; }
-          suggestions.innerHTML = data.clients.map(c =>
-            `<li class="list-group-item list-group-item-action" style="cursor:pointer; font-size:13px;"
-                 data-name="${c.name}" data-phone="${c.no_phone ? '' : c.phone}">
-               ${c.name}${c.no_phone ? ' <span class="text-muted">(No Phone)</span>' : ' <span class="text-muted">— ' + c.phone + '</span>'}
+          if (!data.job_types.length) { typeSuggestions.style.display = 'none'; return; }
+          typeSuggestions.innerHTML = data.job_types.map(jt =>
+            `<li class="list-group-item list-group-item-action"
+                 style="cursor:pointer; font-size:13px;"
+                 data-title="${jt.title}"
+                 data-service="${jt.service_type}"
+                 data-price="${jt.default_price}"
+                 data-desc="${jt.description_template.replace(/"/g,'&quot;')}">
+               ${jt.title}
+               ${jt.service_type ? '<span class="text-muted ms-1" style="font-size:11px;">(' + jt.service_type + ')</span>' : ''}
              </li>`
           ).join('');
-          suggestions.querySelectorAll('li').forEach(li => {
+          typeSuggestions.querySelectorAll('li').forEach(li => {
             li.addEventListener('mousedown', e => {
               e.preventDefault();
-              nameInput.value = li.dataset.name;
-              contactInput.value = li.dataset.phone;
-              suggestions.style.display = 'none';
+              titleInput.value = li.dataset.title;
+              // Auto-fill optional fields; open the section
+              if (li.dataset.service && serviceSelect) serviceSelect.value = li.dataset.service;
+              if (li.dataset.price && priceInput && !priceInput.value) priceInput.value = li.dataset.price;
+              if (li.dataset.desc && descInput && !descInput.value) descInput.value = li.dataset.desc;
+              // Open additional details if any value was filled
+              if (li.dataset.service || li.dataset.price || li.dataset.desc) {
+                const bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl);
+                bsCollapse.show();
+              }
+              typeSuggestions.style.display = 'none';
             });
           });
-          suggestions.style.display = 'block';
+          typeSuggestions.style.display = 'block';
         });
     }, 280);
   });
 
   document.addEventListener('click', e => {
-    if (!nameInput.contains(e.target) && !suggestions.contains(e.target)) {
-      suggestions.style.display = 'none';
+    if (!titleInput.contains(e.target) && !typeSuggestions.contains(e.target)) {
+      typeSuggestions.style.display = 'none';
     }
   });
+
+  // ── Client name autocomplete ──────────────────────────
+  const nameInput    = document.getElementById('clientNameInput');
+  const contactInput = document.getElementById('clientContactInput');
+  const clientSugg   = document.getElementById('clientSuggestions');
+  if (!nameInput) return;
+
+  let clientDebounce;
+  nameInput.addEventListener('input', function () {
+    clearTimeout(clientDebounce);
+    const q = this.value.trim();
+    if (q.length < 2) { clientSugg.style.display = 'none'; return; }
+    clientDebounce = setTimeout(() => {
+      fetch(`{% url 'core:client_search' %}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.clients.length) { clientSugg.style.display = 'none'; return; }
+          clientSugg.innerHTML = data.clients.map(c =>
+            `<li class="list-group-item list-group-item-action" style="cursor:pointer; font-size:13px;"
+                 data-name="${c.name}" data-phone="${c.no_phone ? '' : c.phone}">
+               ${c.name}${c.no_phone ? ' <span class="text-muted">(No Phone)</span>' : ' <span class="text-muted">— ' + c.phone + '</span>'}
+             </li>`
+          ).join('');
+          clientSugg.querySelectorAll('li').forEach(li => {
+            li.addEventListener('mousedown', e => {
+              e.preventDefault();
+              nameInput.value    = li.dataset.name;
+              contactInput.value = li.dataset.phone;
+              clientSugg.style.display = 'none';
+            });
+          });
+          clientSugg.style.display = 'block';
+        });
+    }, 280);
+  });
+
+  document.addEventListener('click', e => {
+    if (!nameInput.contains(e.target) && !clientSugg.contains(e.target)) {
+      clientSugg.style.display = 'none';
+    }
+  });
+
 })();
 </script>
 {% endblock %}

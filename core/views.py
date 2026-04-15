@@ -27,7 +27,7 @@ from django.views import View
 
 from core.models import (
     User, Department, DepartmentMember,
-    Job, Resource, Purchase, Alert, Payment, Report,
+    Job, JobType, Resource, Purchase, Alert, Payment, Report,
     Client, Receipt,
 )
 from core.permissions import ManagerRequiredMixin, StaffRequiredMixin, SuperAdminRequiredMixin
@@ -42,7 +42,7 @@ from core.services import (
     # Payment / alert hooks
     check_overdue_payment_alert,
     # Report
-    generate_report,
+    generate_report, generate_custom_query_report,
     # SMS & receipts
     send_sms, generate_receipt_pdf,
 )
@@ -312,7 +312,7 @@ class JobCreateView(View):
     def get(self, request):
         return render(request, self.template_name, {
             'departments':          self._get_departments(request.user),
-            'staff_users':          User.objects.filter(role=User.Role.STAFF, is_active=True),
+            'staff_users':          User.objects.filter(is_active=True).order_by('first_name', 'username'),
             'priority_choices':     Job.Priority.choices,
             'service_type_choices': Job.ServiceType.choices,
             'action': 'Create',
@@ -327,6 +327,7 @@ class JobCreateView(View):
             client_name    = request.POST.get('client_name', '').strip()
             client_contact = request.POST.get('client_contact', '').strip()
             _sync_client(client_name, client_contact)
+            _sync_job_type(request.POST.get('title', '').strip())
 
             job = create_job(
                 title=request.POST.get('title', '').strip(),
@@ -379,7 +380,7 @@ class JobEditView(View):
         return render(request, self.template_name, {
             'job':                  job,
             'departments':          Department.objects.all(),
-            'staff_users':          User.objects.filter(role=User.Role.STAFF, is_active=True),
+            'staff_users':          User.objects.filter(is_active=True).order_by('first_name', 'username'),
             'priority_choices':     Job.Priority.choices,
             'service_type_choices': Job.ServiceType.choices,
             'action': 'Edit',
@@ -393,6 +394,7 @@ class JobEditView(View):
             client_name    = request.POST.get('client_name', job.client_name).strip()
             client_contact = request.POST.get('client_contact', job.client_contact).strip()
             _sync_client(client_name, client_contact)
+            _sync_job_type(request.POST.get('title', job.title).strip())
             edit_job(
                 job=job, updated_by=request.user,
                 title=request.POST.get('title', job.title).strip(),
@@ -424,6 +426,27 @@ class JobStatusUpdateView(View):
         update_job_status(job, new_status, request.user, request.POST.get('comment', '').strip())
         messages.success(request, f'Job status updated to "{job.get_status_display()}".')
         return redirect('core:job_detail', pk=pk)
+
+
+@method_decorator(login_required, name='dispatch')
+class JobTypeSearchView(View):
+    """JSON autocomplete endpoint for job titles — returns matching JobType records."""
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        if len(q) < 2:
+            return JsonResponse({'job_types': []})
+        job_types = JobType.objects.filter(title__icontains=q)[:10]
+        return JsonResponse({
+            'job_types': [
+                {
+                    'title':                jt.title,
+                    'service_type':         jt.service_type,
+                    'default_price':        str(jt.default_price) if jt.default_price else '',
+                    'description_template': jt.description_template,
+                }
+                for jt in job_types
+            ]
+        })
 
 
 # ══════════════════════════════════════════════════════════
@@ -721,6 +744,23 @@ class GenerateReportView(ManagerRequiredMixin, View):
             return redirect('core:generate_report')
 
 
+class CustomQueryReportView(ManagerRequiredMixin, View):
+    """Accept a natural-language query, run it against live data via OpenAI, save as Report."""
+    def post(self, request):
+        query = request.POST.get('query', '').strip()
+        if not query:
+            messages.error(request, 'Please enter a query.')
+            return redirect('core:report_list')
+        try:
+            messages.info(request, 'Running your query… this may take a few seconds.')
+            report = generate_custom_query_report(query, generated_by=request.user)
+            messages.success(request, 'Query complete.')
+            return redirect('core:report_detail', pk=report.pk)
+        except Exception as e:
+            messages.error(request, f'Query failed: {e}')
+            return redirect('core:report_list')
+
+
 # ══════════════════════════════════════════════════════════
 # 9. RECEIPT VIEWS
 # ══════════════════════════════════════════════════════════
@@ -907,3 +947,13 @@ def _sync_client(name, phone):
                 name=name,
                 no_phone=True,
             )
+
+
+def _sync_job_type(title):
+    """Ensure a JobType record exists for this title (case-insensitive dedup)."""
+    if not title:
+        return
+    JobType.objects.get_or_create(
+        title__iexact=title,
+        defaults={'title': title},
+    )

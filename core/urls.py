@@ -23,7 +23,9 @@ from core.views import (
     # Payments
     PaymentCreateView,
     # Reports
-    ReportListView, ReportDetailView, GenerateReportView,
+    ReportListView, ReportDetailView, GenerateReportView, CustomQueryReportView,
+    # Job Types
+    JobTypeSearchView,
     # Receipts
     ReceiptDownloadView, ReceiptSendSMSView, ReceiptPublicView,
     # Clients
@@ -77,10 +79,14 @@ urlpatterns = [
     path('alerts/<int:pk>/resolve/', AlertResolveView.as_view(), name='alert_resolve'),
     path('alerts/run-checks/',       RunAlertChecksView.as_view(), name='run_checks'),
 
+    # ── Job Types ─────────────────────────────────────
+    path('job-types/search/', JobTypeSearchView.as_view(), name='job_type_search'),
+
     # ── Reports ───────────────────────────────────────
-    path('reports/',              ReportListView.as_view(),    name='report_list'),
-    path('reports/generate/',     GenerateReportView.as_view(), name='generate_report'),
-    path('reports/<int:pk>/',     ReportDetailView.as_view(),  name='report_detail'),
+    path('reports/',          ReportListView.as_view(),        name='report_list'),
+    path('reports/generate/', GenerateReportView.as_view(),    name='generate_report'),
+    path('reports/ask/',      CustomQueryReportView.as_view(), name='custom_query_report'),
+    path('reports/<int:pk>/', ReportDetailView.as_view(),      name='report_detail'),
 
     # ── Receipts ──────────────────────────────────────
     path('payments/<int:payment_pk>/receipt/pdf/', ReceiptDownloadView.as_view(), name='receipt_pdf'),

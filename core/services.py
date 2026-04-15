@@ -599,6 +599,85 @@ def generate_receipt_pdf(payment):
     return buffer
 
 
+def build_custom_query_prompt(query: str, data: dict) -> str:
+    return f"""You are a business intelligence analyst for Khael Solutions, a service company \
+operating printing, network, and multimedia departments in Ghana.
+
+A manager has asked the following question:
+"{query}"
+
+Answer it precisely using the operational data below. If the data doesn't contain enough \
+information to answer fully, say so and give what you can. Use plain paragraphs, be concise \
+and specific with numbers (GHS amounts, counts, percentages).
+
+OPERATIONAL DATA (last 90 days):
+{json.dumps(data, indent=2, cls=DecimalEncoder)}
+"""
+
+
+def generate_custom_query_report(query: str, generated_by=None) -> 'Report':
+    """Run a natural-language BI query against the last 90 days of data."""
+    from core.models import Report, Job, Payment
+    from django.db.models import Sum, Count
+    from django.db.models.functions import TruncMonth
+
+    today        = timezone.now().date()
+    period_start = today - timedelta(days=90)
+    period_end   = today
+
+    data = aggregate_operational_data(period_start, period_end)
+
+    # Revenue by service type
+    data['revenue_by_service_type'] = list(
+        Payment.objects.filter(payment_date__range=(period_start, period_end))
+        .values('job__service_type')
+        .annotate(total_revenue=Sum('amount'), payment_count=Count('id'))
+        .order_by('-total_revenue')
+    )
+
+    # Revenue by month
+    data['revenue_by_month'] = [
+        {
+            'month': str(r['month']),
+            'total': float(r['total'] or 0),
+        }
+        for r in Payment.objects.filter(payment_date__range=(period_start, period_end))
+        .annotate(month=TruncMonth('payment_date'))
+        .values('month')
+        .annotate(total=Sum('amount'))
+        .order_by('month')
+    ]
+
+    # Top clients by revenue
+    data['top_clients_by_revenue'] = list(
+        Payment.objects.filter(payment_date__range=(period_start, period_end))
+        .values('job__client_name')
+        .annotate(total_revenue=Sum('amount'))
+        .order_by('-total_revenue')[:10]
+    )
+
+    # Jobs by title keyword (top 20)
+    data['jobs_by_title'] = list(
+        Job.objects.filter(created_at__date__range=(period_start, period_end))
+        .values('title')
+        .annotate(count=Count('id'), total_paid=Sum('payments__amount'))
+        .order_by('-count')[:20]
+    )
+
+    prompt       = build_custom_query_prompt(query, data)
+    summary_text = call_openai_api(prompt)
+
+    return Report.objects.create(
+        period_start=period_start,
+        period_end=period_end,
+        generated_by=generated_by,
+        report_type=Report.ReportType.CUSTOM_QUERY,
+        query_text=query,
+        summary_text=summary_text,
+        raw_data_snapshot=json.loads(json.dumps(data, cls=DecimalEncoder)),
+    )
+
+
 def generate_weekly_report_auto():
     from core.models import Report
     today        = timezone.now().date()
