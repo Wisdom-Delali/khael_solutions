@@ -67,14 +67,15 @@
               <a class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse"
                  href="#additionalDetails" role="button"
                  id="additionalToggle"
-                 aria-expanded="false" aria-controls="additionalDetails">
-                <i class="bi bi-chevron-down me-1" id="additionalIcon"></i>Additional Details
+                 aria-expanded="{% if job %}true{% else %}false{% endif %}"
+                 aria-controls="additionalDetails">
+                <i class="bi {% if job %}bi-chevron-up{% else %}bi-chevron-down{% endif %} me-1" id="additionalIcon"></i>Additional Details
               </a>
             </div>
 
             <!-- ── Collapsible optional fields ────────── -->
             <div class="col-12 p-0">
-              <div class="collapse" id="additionalDetails">
+              <div class="collapse{% if job %} show{% endif %}" id="additionalDetails">
                 <div class="row g-3 px-0">
 
                   <!-- Service Type + Assign To -->
@@ -193,22 +194,7 @@
     icon.classList.replace('bi-chevron-up', 'bi-chevron-down');
   });
 
-  // ── Auto-expand if optional fields already have values (edit mode) ──
-  const optionalHasValue = [
-    document.querySelector('[name="service_type"]'),
-    document.querySelector('[name="assigned_to"]'),
-    document.getElementById('clientNameInput'),
-    document.getElementById('clientContactInput'),
-    document.getElementById('priceInput'),
-    document.querySelector('[name="start_date"]'),
-    document.querySelector('[name="due_date"]'),
-    document.getElementById('descriptionInput'),
-  ].some(el => el && el.value && el.value !== '' && el.value !== 'general' && el.value !== 'medium');
 
-  if (optionalHasValue) {
-    const bsCollapse = new bootstrap.Collapse(collapseEl, { toggle: false });
-    bsCollapse.show();
-  }
 
   // ── Job-type title autocomplete ───────────────────────
   const titleInput      = document.getElementById('jobTitleInput');
