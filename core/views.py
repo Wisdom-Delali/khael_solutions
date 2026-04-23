@@ -30,7 +30,7 @@ from core.models import (
     Job, JobType, Resource, Purchase, Alert, Payment, Report,
     Client, Receipt,
 )
-from core.permissions import ManagerRequiredMixin, StaffRequiredMixin, SuperAdminRequiredMixin
+from core.permissions import ManagerRequiredMixin
 from core.services import (
     # Job
     get_jobs_for_user, create_job, update_job_status, edit_job, get_job_timeline,
@@ -700,8 +700,11 @@ class ReportListView(ManagerRequiredMixin, View):
     template_name = 'reports/report_list.html'
 
     def get(self, request):
+        reports = Report.objects.select_related('generated_by').order_by('-created_at')
+        if request.user.role == 'manager':
+            reports = reports.filter(generated_by=request.user)
         return render(request, self.template_name, {
-            'reports': Report.objects.select_related('generated_by').order_by('-created_at'),
+            'reports': reports,
         })
 
 
@@ -893,7 +896,7 @@ class ClientDetailView(View):
         })
 
 
-class ClientEditView(SuperAdminRequiredMixin, View):
+class ClientEditView(ManagerRequiredMixin, View):
     template_name = 'clients/client_edit.html'
 
     def get(self, request, phone):

@@ -534,7 +534,7 @@ def generate_receipt_pdf(payment):
     title_style = ParagraphStyle(
         'CustomTitle', parent=styles['Title'], fontSize=20, spaceAfter=4,
     )
-    story.append(Paragraph("G A SARPONG", title_style))
+    story.append(Paragraph("KhaelSolutions Enterprise", title_style))
     story.append(Paragraph("Payment Receipt", styles['Heading2']))
     story.append(HRFlowable(width="100%", thickness=1, color=colors.grey))
     story.append(Spacer(1, 0.5 * cm))
