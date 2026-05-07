@@ -5,17 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}Khael Solutions{% endblock %} — Operations System</title>
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
-
-  <!-- Bootstrap 5 -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet" />
-  <!-- Bootstrap Icons -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
-
   {% load static %}
+  <link rel="stylesheet" href="{% static 'vendor/fonts/fonts.css' %}" />
+  <link rel="stylesheet" href="{% static 'vendor/css/bootstrap.min.css' %}" />
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}" />
   <link rel="stylesheet" href="{% static 'css/main.css' %}" />
 
   {% block extra_head %}{% endblock %}
@@ -167,7 +160,7 @@
 </div>
 
 <!-- Bootstrap JS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'vendor/js/bootstrap.bundle.min.js' %}"></script>
 {% load static %}
 <script src="{% static 'js/main.js' %}"></script>
 {% block extra_js %}{% endblock %}
