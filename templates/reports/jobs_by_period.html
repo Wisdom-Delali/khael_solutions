@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block title %}Jobs Report{% endblock %}
+{% block topbar_title %}Jobs Report{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'core:dashboard' %}">Dashboard</a></li>
+    <li class="breadcrumb-item active">Jobs Report</li>
+  </ol>
+</nav>
+
+<div class="page-header">
+  <div>
+    <h1>Jobs Report</h1>
+    <p class="text-muted">Jobs created between {{ period_start|date:"d M Y" }} and {{ period_end|date:"d M Y" }}
+      {% if selected_user and request.user.role != 'staff' %}· <strong>{{ selected_user.get_full_name|default:selected_user.username }}</strong>{% endif %}
+    </p>
+  </div>
+</div>
+
+<!-- Filter form -->
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-sm-3">
+        <label class="form-label" style="font-size:12px;">From</label>
+        <input type="date" name="start_date" class="form-control form-control-sm"
+               value="{{ period_start|date:'Y-m-d' }}">
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label" style="font-size:12px;">To</label>
+        <input type="date" name="end_date" class="form-control form-control-sm"
+               value="{{ period_end|date:'Y-m-d' }}">
+      </div>
+
+      {% if all_users %}
+      <div class="col-sm-3">
+        <label class="form-label" style="font-size:12px;">User</label>
+        <select name="user_id" class="form-select form-select-sm">
+          <option value="">— All users —</option>
+          {% for u in all_users %}
+          <option value="{{ u.pk }}" {% if user_id == u.pk|stringformat:"s" %}selected{% endif %}>
+            {{ u.get_full_name|default:u.username }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-2">
+        <label class="form-label" style="font-size:12px;">Filter by</label>
+        <select name="filter_by" class="form-select form-select-sm">
+          <option value="assigned_to" {% if filter_by == 'assigned_to' %}selected{% endif %}>Assigned to</option>
+          <option value="created_by"  {% if filter_by == 'created_by'  %}selected{% endif %}>Created by</option>
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="col-sm-1">
+        <button type="submit" class="btn btn-sm btn-primary w-100">Filter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-2">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div style="font-size:22px; font-weight:700;">{{ summary.total }}</div>
+        <div class="text-muted" style="font-size:12px;">Total Jobs</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div style="font-size:22px; font-weight:700; color:#198754;">{{ summary.completed }}</div>
+        <div class="text-muted" style="font-size:12px;">Completed</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div style="font-size:22px; font-weight:700; color:#0d6efd;">{{ summary.in_progress }}</div>
+        <div class="text-muted" style="font-size:12px;">In Progress</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div style="font-size:22px; font-weight:700; color:#6c757d;">{{ summary.pending }}</div>
+        <div class="text-muted" style="font-size:12px;">Pending</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div style="font-size:22px; font-weight:700; color:#dc3545;">{{ summary.overdue }}</div>
+        <div class="text-muted" style="font-size:12px;">Overdue</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div style="font-size:18px; font-weight:700;">GHS {{ summary.total_revenue|floatformat:2 }}</div>
+        <div class="text-muted" style="font-size:12px;">Total Revenue</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Jobs table -->
+<div class="card">
+  <div class="card-header">
+    <h6><i class="bi bi-briefcase me-2 text-muted"></i>Jobs ({{ summary.total }})</h6>
+  </div>
+  {% if jobs %}
+  <div class="table-responsive">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Title</th>
+          <th>Department</th>
+          <th>Status</th>
+          <th>Priority</th>
+          <th>Assigned To</th>
+          <th>Created By</th>
+          <th>Due Date</th>
+          <th>Price</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td class="text-muted" style="font-size:12px;">{{ job.pk }}</td>
+          <td>
+            <a href="{% url 'core:job_detail' job.pk %}" style="font-weight:500; text-decoration:none;">
+              {{ job.title|truncatechars:40 }}
+            </a>
+          </td>
+          <td class="text-muted">{{ job.department }}</td>
+          <td><span class="badge-status badge-{{ job.status }}">{{ job.get_status_display }}</span></td>
+          <td><span class="badge-status badge-{{ job.priority }}">{{ job.get_priority_display }}</span></td>
+          <td class="text-muted">{{ job.assigned_to.get_full_name|default:job.assigned_to.username|default:"—" }}</td>
+          <td class="text-muted">{{ job.created_by.get_full_name|default:job.created_by.username|default:"—" }}</td>
+          <td class="{% if job.is_overdue %}text-danger fw-500{% else %}text-muted{% endif %}">
+            {{ job.due_date|date:"d M Y"|default:"—" }}
+          </td>
+          <td class="text-muted">{% if job.price %}GHS {{ job.price }}{% else %}—{% endif %}</td>
+          <td class="text-muted" style="font-size:12px;">{{ job.created_at|date:"d M Y" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-briefcase"></i>
+    <p>No jobs found for the selected period{% if selected_user %} and user{% endif %}.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -17,7 +17,9 @@ from datetime import date, timedelta
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -28,7 +30,7 @@ from django.views import View
 from core.models import (
     User, Department, DepartmentMember,
     Job, JobType, Resource, Purchase, Alert, Payment, Report,
-    Client, Receipt,
+    Client, Receipt, ResourceTemplate,
 )
 from core.permissions import ManagerRequiredMixin
 from core.services import (
@@ -359,15 +361,19 @@ class JobDetailView(View):
         timeline        = get_job_timeline(job)
         usages, total   = get_job_usage_summary(job)
         payments        = job.payments.select_related('recorded_by').order_by('-payment_date')
+        suggested       = ResourceTemplate.objects.filter(
+            service_type=job.service_type
+        ).select_related('resource')
         return render(request, self.template_name, {
-            'job':            job,
-            'timeline':       timeline,
-            'usages':         usages,
-            'usage_total':    total,
-            'alerts':         job.alerts.all(),
-            'payments':       payments,
-            'total_paid':     job.total_paid(),
-            'status_choices': Job.Status.choices,
+            'job':                 job,
+            'timeline':            timeline,
+            'usages':              usages,
+            'usage_total':         total,
+            'alerts':              job.alerts.all(),
+            'payments':            payments,
+            'total_paid':          job.total_paid(),
+            'status_choices':      Job.Status.choices,
+            'suggested_resources': suggested,
         })
 
 
@@ -377,37 +383,50 @@ class JobEditView(View):
 
     def get(self, request, pk):
         job = get_object_or_404(get_jobs_for_user(request.user), pk=pk)
+        if request.user.role == 'staff' and job.assigned_to != request.user:
+            raise PermissionDenied
         return render(request, self.template_name, {
             'job':                  job,
             'departments':          Department.objects.all(),
             'staff_users':          User.objects.filter(is_active=True).order_by('first_name', 'username'),
             'priority_choices':     Job.Priority.choices,
             'service_type_choices': Job.ServiceType.choices,
-            'action': 'Edit',
+            'action':               'Edit',
+            'staff_limited_edit':   request.user.role == 'staff',
         })
 
     def post(self, request, pk):
         job = get_object_or_404(get_jobs_for_user(request.user), pk=pk)
+        if request.user.role == 'staff' and job.assigned_to != request.user:
+            raise PermissionDenied
         try:
-            assigned_id    = request.POST.get('assigned_to')
-            assigned_to    = get_object_or_404(User, pk=assigned_id) if assigned_id else None
-            client_name    = request.POST.get('client_name', job.client_name).strip()
-            client_contact = request.POST.get('client_contact', job.client_contact).strip()
-            _sync_client(client_name, client_contact)
-            _sync_job_type(request.POST.get('title', job.title).strip())
-            edit_job(
-                job=job, updated_by=request.user,
-                title=request.POST.get('title', job.title).strip(),
-                description=request.POST.get('description', job.description).strip(),
-                client_name=client_name,
-                client_contact=client_contact,
-                priority=request.POST.get('priority', job.priority),
-                service_type=request.POST.get('service_type', job.service_type),
-                price=request.POST.get('price') or None,
-                start_date=request.POST.get('start_date') or None,
-                due_date=request.POST.get('due_date') or None,
-                assigned_to=assigned_to,
-            )
+            if request.user.role == 'staff':
+                edit_job(
+                    job=job, updated_by=request.user,
+                    description=request.POST.get('description', job.description or '').strip(),
+                    start_date=request.POST.get('start_date') or None,
+                    due_date=request.POST.get('due_date') or None,
+                )
+            else:
+                assigned_id    = request.POST.get('assigned_to')
+                assigned_to    = get_object_or_404(User, pk=assigned_id) if assigned_id else None
+                client_name    = request.POST.get('client_name', job.client_name).strip()
+                client_contact = request.POST.get('client_contact', job.client_contact).strip()
+                _sync_client(client_name, client_contact)
+                _sync_job_type(request.POST.get('title', job.title).strip())
+                edit_job(
+                    job=job, updated_by=request.user,
+                    title=request.POST.get('title', job.title).strip(),
+                    description=request.POST.get('description', job.description or '').strip(),
+                    client_name=client_name,
+                    client_contact=client_contact,
+                    priority=request.POST.get('priority', job.priority),
+                    service_type=request.POST.get('service_type', job.service_type),
+                    price=request.POST.get('price') or None,
+                    start_date=request.POST.get('start_date') or None,
+                    due_date=request.POST.get('due_date') or None,
+                    assigned_to=assigned_to,
+                )
             messages.success(request, 'Job updated successfully.')
             return redirect('core:job_detail', pk=job.pk)
         except Exception as e:
@@ -660,24 +679,43 @@ class RunAlertChecksView(ManagerRequiredMixin, View):
 # 7. PAYMENT VIEWS
 # ══════════════════════════════════════════════════════════
 
-class PaymentCreateView(ManagerRequiredMixin, View):
+class PaymentCreateView(LoginRequiredMixin, View):
     template_name = 'payments/payment_form.html'
+
+    def _check_access(self, request, job):
+        if request.user.role == 'staff' and job.assigned_to != request.user:
+            raise PermissionDenied
 
     def get(self, request, job_pk):
         job = get_object_or_404(Job, pk=job_pk)
+        self._check_access(request, job)
+        total_paid = job.total_paid()
+        remaining  = (job.price - total_paid) if job.price else None
         return render(request, self.template_name, {
             'job':            job,
             'method_choices': Payment.Method.choices,
             'today':          timezone.now().date(),
-            'total_paid':     job.total_paid(),
+            'total_paid':     total_paid,
+            'remaining':      remaining,
         })
 
     def post(self, request, job_pk):
         job = get_object_or_404(Job, pk=job_pk)
+        self._check_access(request, job)
         try:
+            amount = Decimal(request.POST.get('amount'))
+            if job.price:
+                remaining = job.price - job.total_paid()
+                if amount > remaining:
+                    messages.error(
+                        request,
+                        f'Payment of GHS {amount:,.2f} exceeds the remaining balance of GHS {remaining:,.2f}. '
+                        f'Total paid cannot exceed the quoted price of GHS {job.price:,.2f}.'
+                    )
+                    return redirect('core:payment_create', job_pk=job.pk)
             payment = Payment.objects.create(
                 job=job,
-                amount=Decimal(request.POST.get('amount')),
+                amount=amount,
                 payment_date=request.POST.get('payment_date'),
                 payment_method=request.POST.get('payment_method', Payment.Method.CASH),
                 reference=request.POST.get('reference', '').strip(),
@@ -745,6 +783,86 @@ class GenerateReportView(ManagerRequiredMixin, View):
         except Exception as e:
             messages.error(request, f'Report generation failed: {e}')
             return redirect('core:generate_report')
+
+
+@method_decorator(login_required, name='dispatch')
+class JobsReportView(View):
+    template_name = 'reports/jobs_by_period.html'
+
+    def get(self, request):
+        from django.db.models import Q, Sum
+        user  = request.user
+        today = timezone.now().date()
+        first_of_month = today.replace(day=1)
+
+        start_str = request.GET.get('start_date', first_of_month.isoformat())
+        end_str   = request.GET.get('end_date',   today.isoformat())
+        filter_by = request.GET.get('filter_by',  'assigned_to')
+        user_id   = request.GET.get('user_id',    '')
+
+        try:
+            period_start = date.fromisoformat(start_str)
+            period_end   = date.fromisoformat(end_str)
+        except (ValueError, TypeError):
+            period_start = first_of_month
+            period_end   = today
+
+        if period_start > period_end:
+            period_start, period_end = period_end, period_start
+
+        if filter_by not in ('assigned_to', 'created_by'):
+            filter_by = 'assigned_to'
+
+        jobs = Job.objects.filter(
+            created_at__date__range=(period_start, period_end)
+        ).select_related('department', 'assigned_to', 'created_by')
+
+        selected_user = None
+        all_users     = None
+
+        if user.role == 'staff':
+            jobs = jobs.filter(Q(assigned_to=user) | Q(created_by=user))
+            selected_user = user
+        else:
+            all_users = User.objects.filter(is_active=True).order_by('first_name', 'username')
+            if user_id:
+                try:
+                    selected_user = User.objects.get(pk=int(user_id))
+                    jobs = jobs.filter(**{filter_by: selected_user})
+                except (User.DoesNotExist, ValueError):
+                    pass
+
+        jobs = jobs.order_by('-created_at')
+
+        total       = jobs.count()
+        completed   = jobs.filter(status=Job.Status.COMPLETED).count()
+        pending     = jobs.filter(status=Job.Status.PENDING).count()
+        in_progress = jobs.filter(status=Job.Status.IN_PROGRESS).count()
+        overdue     = jobs.filter(
+            due_date__lt=today,
+            status__in=[Job.Status.PENDING, Job.Status.IN_PROGRESS],
+        ).count()
+        total_revenue = jobs.aggregate(t=Sum('price'))['t'] or 0
+        total_paid    = sum(j.total_paid() for j in jobs)
+
+        return render(request, self.template_name, {
+            'jobs':          jobs,
+            'period_start':  period_start,
+            'period_end':    period_end,
+            'filter_by':     filter_by,
+            'selected_user': selected_user,
+            'all_users':     all_users,
+            'user_id':       user_id,
+            'summary': {
+                'total':         total,
+                'completed':     completed,
+                'pending':       pending,
+                'in_progress':   in_progress,
+                'overdue':       overdue,
+                'total_revenue': total_revenue,
+                'total_paid':    total_paid,
+            },
+        })
 
 
 class CustomQueryReportView(ManagerRequiredMixin, View):

@@ -24,6 +24,7 @@ from core.views import (
     PaymentCreateView,
     # Reports
     ReportListView, ReportDetailView, GenerateReportView, CustomQueryReportView,
+    JobsReportView,
     # Job Types
     JobTypeSearchView,
     # Receipts
@@ -84,6 +85,7 @@ urlpatterns = [
 
     # ── Reports ───────────────────────────────────────
     path('reports/',          ReportListView.as_view(),        name='report_list'),
+    path('reports/jobs/',     JobsReportView.as_view(),        name='jobs_report'),
     path('reports/generate/', GenerateReportView.as_view(),    name='generate_report'),
     path('reports/ask/',      CustomQueryReportView.as_view(), name='custom_query_report'),
     path('reports/<int:pk>/', ReportDetailView.as_view(),      name='report_detail'),

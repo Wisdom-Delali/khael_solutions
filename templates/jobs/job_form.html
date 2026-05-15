@@ -27,9 +27,41 @@
           {% csrf_token %}
           <div class="row g-3">
 
+{% if staff_limited_edit %}
+            <!-- ── Staff: read-only context + limited editable fields ── -->
+            <div class="col-12">
+              <div class="alert alert-info py-2 small mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                You can update the description and dates for jobs assigned to you.
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600;">Job Title</label>
+              <div class="fw-semibold pt-1">{{ job.title }}</div>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label text-muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600;">Department</label>
+              <div class="pt-1">{{ job.department }}</div>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Start Date</label>
+              <input type="date" name="start_date" class="form-control"
+                     value="{{ job.start_date|date:'Y-m-d'|default:'' }}" />
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Due Date</label>
+              <input type="date" name="due_date" class="form-control"
+                     value="{{ job.due_date|date:'Y-m-d'|default:'' }}" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description / Notes</label>
+              <textarea name="description" class="form-control" rows="5"
+                        placeholder="Job details, special instructions, scope of work…">{{ job.description|default:'' }}</textarea>
+            </div>
+{% else %}
             <!-- ── Required fields ─────────────────────── -->
-            <!-- Title (with job-type autocomplete) -->
-            <div class="col-12" style="position:relative;">
+            <!-- Title + Client Name side by side -->
+            <div class="col-sm-8" style="position:relative;">
               <label class="form-label">Job Title <span class="text-danger">*</span></label>
               <input type="text" name="title" id="jobTitleInput" class="form-control"
                      value="{{ job.title|default:'' }}"
@@ -39,8 +71,18 @@
                   style="display:none; position:absolute; z-index:1000; width:100%;
                          max-height:220px; overflow-y:auto; top:100%; left:0;"></ul>
             </div>
+            <div class="col-sm-4" style="position:relative;">
+              <label class="form-label">Client Name</label>
+              <input type="text" name="client_name" id="clientNameInput" class="form-control"
+                     value="{{ job.client_name|default:'' }}"
+                     placeholder="Type to search or add…"
+                     autocomplete="off" />
+              <ul id="clientSuggestions" class="list-group"
+                  style="display:none; position:absolute; z-index:1000; width:100%;
+                         max-height:200px; overflow-y:auto; top:100%; left:0;"></ul>
+            </div>
 
-            <!-- Department -->
+            <!-- Department + Quoted Price -->
             <div class="col-sm-6">
               <label class="form-label">Department <span class="text-danger">*</span></label>
               <select name="department" class="form-select" required>
@@ -54,8 +96,6 @@
                 {% endfor %}
               </select>
             </div>
-
-            <!-- Quoted Price -->
             <div class="col-sm-6">
               <label class="form-label">Quoted Price / Budget (GHS) <span class="text-danger">*</span></label>
               <input type="number" name="price" id="priceInput" class="form-control"
@@ -107,24 +147,12 @@
                     </select>
                   </div>
 
-                  <!-- Client Name + Contact -->
-                  <div class="col-sm-6" style="position:relative;">
-                    <label class="form-label">Client Name</label>
-                    <input type="text" name="client_name" id="clientNameInput" class="form-control"
-                           value="{{ job.client_name|default:'' }}"
-                           placeholder="Type to search or enter new…"
-                           autocomplete="off" />
-                    <ul id="clientSuggestions" class="list-group"
-                        style="display:none; position:absolute; z-index:1000; width:100%;
-                               max-height:200px; overflow-y:auto; top:100%; left:0;"></ul>
-                  </div>
+                  <!-- Client Contact + Priority -->
                   <div class="col-sm-6">
                     <label class="form-label">Client Contact (Phone)</label>
                     <input type="text" name="client_contact" id="clientContactInput" class="form-control"
                            value="{{ job.client_contact|default:'' }}" placeholder="Phone number" />
                   </div>
-
-                  <!-- Priority -->
                   <div class="col-sm-6">
                     <label class="form-label">Priority</label>
                     <select name="priority" class="form-select">
@@ -137,7 +165,6 @@
                       {% endfor %}
                     </select>
                   </div>
-                  <div class="col-sm-6"></div>
 
                   <!-- Dates -->
                   <div class="col-sm-6">
@@ -161,6 +188,7 @@
                 </div><!-- /.row -->
               </div><!-- /.collapse -->
             </div>
+{% endif %}
 
           </div><!-- /.row (outer) -->
 
@@ -183,6 +211,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{% if not staff_limited_edit %}
 <script>
 (function () {
 
@@ -296,4 +325,5 @@
 
 })();
 </script>
+{% endif %}
 {% endblock %}

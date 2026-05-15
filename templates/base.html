@@ -40,8 +40,13 @@
 
         <div class="nav-section-label">Operations</div>
         <li class="nav-item">
-          <a href="{% url 'core:job_list' %}" class="{% if 'job' in request.resolver_match.url_name %}active{% endif %}">
+          <a href="{% url 'core:job_list' %}" class="{% if 'job' in request.resolver_match.url_name and request.resolver_match.url_name != 'jobs_report' %}active{% endif %}">
             <i class="bi bi-briefcase"></i> Jobs
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'core:jobs_report' %}" class="{% if request.resolver_match.url_name == 'jobs_report' %}active{% endif %}">
+            <i class="bi bi-calendar-range"></i> Jobs Report
           </a>
         </li>
         <li class="nav-item">

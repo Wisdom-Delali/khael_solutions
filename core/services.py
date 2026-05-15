@@ -8,6 +8,7 @@ Sections:
   4. Report Service       — data aggregation, OpenAI prompt, report generation
 """
 import json
+import re
 from decimal import Decimal
 from datetime import date, timedelta
 
@@ -426,24 +427,24 @@ def aggregate_operational_data(period_start: date, period_end: date) -> dict:
 
 def build_prompt(data: dict) -> str:
     return f"""You are a business intelligence analyst for Khael Solutions, a service company \
-operating printing, network, and multimedia departments in Ghana.
+        operating printing, network, and multimedia departments in Ghana.
 
-Based on the following operational data for the period {data['period']['start']} \
-to {data['period']['end']}, write a professional operational summary report.
+        Based on the following operational data for the period {data['period']['start']} \
+        to {data['period']['end']}, write a professional operational summary report.
 
-The report should:
-1. Start with a brief executive summary (2-3 sentences)
-2. Highlight job performance (completions, delays, overdue work)
-3. Comment on resource and expense trends
-4. Note any significant alerts or anomalies
-5. Provide 2-3 actionable recommendations for management
-6. Use clear, professional language suitable for a manager
+        The report should:
+        1. Start with a brief executive summary (2-3 sentences)
+        2. Highlight job performance (completions, delays, overdue work)
+        3. Comment on resource and expense trends
+        4. Note any significant alerts or anomalies
+        5. Provide 2-3 actionable recommendations for management
+        6. Use clear, professional language suitable for a manager
 
-OPERATIONAL DATA:
-{json.dumps(data, indent=2, cls=DecimalEncoder)}
+        OPERATIONAL DATA:
+        {json.dumps(data, indent=2, cls=DecimalEncoder)}
 
-Write the report in plain paragraphs (no markdown headers). Be concise but insightful.
-"""
+        Write the report in plain paragraphs (no markdown headers). Be concise but insightful.
+        """
 
 
 def call_openai_api(prompt: str) -> str:
@@ -511,7 +512,7 @@ def send_sms(content, number):
 
 
 def generate_receipt_pdf(payment):
-    """Generate a PDF receipt for a Payment. Returns a BytesIO buffer."""
+    """Generate a PDF receipt for a Payment."""
     from io import BytesIO
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
@@ -594,33 +595,128 @@ def generate_receipt_pdf(payment):
     return buffer
 
 
-def build_custom_query_prompt(query: str, data: dict) -> str:
+def detect_query_date_range(query: str, today: date) -> tuple[date, date]:
+    """
+    Parse natural-language date references in a query and return (start, end).
+    Falls back to the last 90 days when no recognisable reference is found.
+    """
+    q = query.lower()
+
+    # "last N days" / "past N days"
+    m = re.search(r'(?:last|past)\s+(\d+)\s+days?', q)
+    if m:
+        n = int(m.group(1))
+        return today - timedelta(days=n - 1), today
+
+    # "last N weeks"
+    m = re.search(r'(?:last|past)\s+(\d+)\s+weeks?', q)
+    if m:
+        n = int(m.group(1))
+        return today - timedelta(weeks=n), today
+
+    # "last N months"
+    m = re.search(r'(?:last|past)\s+(\d+)\s+months?', q)
+    if m:
+        n = int(m.group(1))
+        return today.replace(day=1) - timedelta(days=1) - timedelta(days=30 * (n - 1)), today
+
+    if 'yesterday' in q:
+        yesterday = today - timedelta(days=1)
+        return yesterday, yesterday
+
+    if 'today' in q:
+        return today, today
+
+    if 'this week' in q:
+        return today - timedelta(days=today.weekday()), today
+
+    if 'last week' in q:
+        start = today - timedelta(days=today.weekday() + 7)
+        end   = start + timedelta(days=6)
+        return start, end
+
+    if 'this month' in q:
+        return today.replace(day=1), today
+
+    if 'last month' in q:
+        first_this = today.replace(day=1)
+        last_prev  = first_this - timedelta(days=1)
+        return last_prev.replace(day=1), last_prev
+
+    if 'this year' in q:
+        return today.replace(month=1, day=1), today
+
+    if 'last year' in q:
+        return date(today.year - 1, 1, 1), date(today.year - 1, 12, 31)
+
+    # Default: 90-day window
+    return today - timedelta(days=90), today
+
+
+def _jobs_for_period(period_start: date, period_end: date) -> list:
+    """Return individual job records for the period, for inclusion in the GPT prompt."""
+    from core.models import Job
+    jobs = (
+        Job.objects.filter(created_at__date__range=(period_start, period_end))
+        .select_related('department', 'assigned_to')
+        .order_by('-created_at')[:100]
+    )
+    result = []
+    for j in jobs:
+        result.append({
+            'id':           j.pk,
+            'title':        j.title,
+            'client':       j.client_name or None,
+            'department':   str(j.department),
+            'service_type': j.get_service_type_display(),
+            'status':       j.get_status_display(),
+            'priority':     j.get_priority_display(),
+            'price':        float(j.price) if j.price else None,
+            'assigned_to':  j.assigned_to.get_full_name() or j.assigned_to.username if j.assigned_to else None,
+            'created_at':   j.created_at.strftime('%Y-%m-%d'),
+            'due_date':     str(j.due_date) if j.due_date else None,
+            'overdue':      j.is_overdue(),
+        })
+    return result
+
+
+def build_custom_query_prompt(query: str, data: dict, today: date) -> str:
+    period = data.get('period', {})
+    period_desc = (
+        f"{period.get('start')} to {period.get('end')}"
+        if period.get('start') != period.get('end')
+        else period.get('start')
+    )
     return f"""You are a business intelligence analyst for Khael Solutions, a service company \
 operating printing, network, and multimedia departments in Ghana.
+
+Today's date is {today}. The operational data below covers the period: {period_desc}.
 
 A manager has asked the following question:
 "{query}"
 
-Answer it precisely using the operational data below. If the data doesn't contain enough \
-information to answer fully, say so and give what you can. Use plain paragraphs, be concise \
-and specific with numbers (GHS amounts, counts, percentages).
+Answer it precisely using the data below. If individual job records are included under \
+"job_records", list them specifically (title, client, status, department). \
+Use plain paragraphs. Be concise and specific with numbers (GHS amounts, counts, percentages).
 
-OPERATIONAL DATA (last 90 days):
+OPERATIONAL DATA:
 {json.dumps(data, indent=2, cls=DecimalEncoder)}
 """
 
 
 def generate_custom_query_report(query: str, generated_by=None) -> 'Report':
-    """Run a natural-language BI query against the last 90 days of data."""
+    """Run a natural-language BI query. Detects date references and fetches the right range."""
     from core.models import Report, Job, Payment
     from django.db.models import Sum, Count
     from django.db.models.functions import TruncMonth
 
     today        = timezone.now().date()
-    period_start = today - timedelta(days=90)
-    period_end   = today
+    period_start, period_end = detect_query_date_range(query, today)
 
     data = aggregate_operational_data(period_start, period_end)
+
+    # Individual job records for the detected period
+    data['job_records'] = _jobs_for_period(period_start, period_end)
 
     # Revenue by service type
     data['revenue_by_service_type'] = list(
@@ -651,7 +747,7 @@ def generate_custom_query_report(query: str, generated_by=None) -> 'Report':
         .order_by('-total_revenue')[:10]
     )
 
-    # Jobs by title keyword (top 20)
+    # Jobs by title (top 20)
     data['jobs_by_title'] = list(
         Job.objects.filter(created_at__date__range=(period_start, period_end))
         .values('title')
@@ -659,7 +755,7 @@ def generate_custom_query_report(query: str, generated_by=None) -> 'Report':
         .order_by('-count')[:20]
     )
 
-    prompt       = build_custom_query_prompt(query, data)
+    prompt       = build_custom_query_prompt(query, data, today)
     summary_text = call_openai_api(prompt)
 
     return Report.objects.create(

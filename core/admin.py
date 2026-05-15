@@ -4,7 +4,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from core.models import (
     User, Department, DepartmentMember,
     Job, JobUpdate,
-    Resource, ResourceHistory, ResourceUsage,
+    Resource, ResourceHistory, ResourceUsage, ResourceTemplate,
     Purchase, PurchaseResource,
     Payment,
     Alert,
@@ -87,3 +87,9 @@ class AlertAdmin(admin.ModelAdmin):
 @admin.register(Report)
 class ReportAdmin(admin.ModelAdmin):
     list_display = ('report_type', 'period_start', 'period_end', 'generated_by', 'created_at')
+
+
+@admin.register(ResourceTemplate)
+class ResourceTemplateAdmin(admin.ModelAdmin):
+    list_display = ('service_type', 'resource', 'default_quantity')
+    list_filter  = ('service_type',)

@@ -301,6 +301,27 @@ class ResourceUsage(models.Model):
 
 
 # ══════════════════════════════════════════════════════════
+# RESOURCE TEMPLATE MODEL
+# ══════════════════════════════════════════════════════════
+
+class ResourceTemplate(models.Model):
+    """
+    Default resources to suggest when a job of a given service type is opened.
+    Managers configure these in admin; suggestions appear on the job detail page.
+    """
+    service_type     = models.CharField(max_length=20, choices=Job.ServiceType.choices)
+    resource         = models.ForeignKey(Resource, on_delete=models.CASCADE, related_name='templates')
+    default_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+
+    class Meta:
+        unique_together = [('service_type', 'resource')]
+        ordering = ['service_type', 'resource__title']
+
+    def __str__(self):
+        return f"{self.get_service_type_display()} → {self.resource.title} × {self.default_quantity}"
+
+
+# ══════════════════════════════════════════════════════════
 # PURCHASE MODELS
 # ══════════════════════════════════════════════════════════
 
