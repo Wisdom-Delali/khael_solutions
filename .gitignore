@@ -12,3 +12,4 @@ env/
 # Static and Media Files
 staticfiles/
 media/
+explanation.md

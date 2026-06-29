@@ -11,7 +11,8 @@ Coverage:
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.test import TestCase, Client
+from django.conf import settings
+from django.test import TestCase, Client, RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
@@ -24,6 +25,7 @@ from core.models import (
     Alert,
 )
 from core import services
+from core.views import JobsReportView
 
 
 # ──────────────────────────────────────────────────────────
@@ -598,6 +600,32 @@ class AlertViewTest(TestCase):
         self.client.post(reverse('core:alert_resolve', args=[alert.pk]))
         alert.refresh_from_db()
         self.assertTrue(alert.resolved)
+
+
+class ReportViewTest(TestCase):
+
+    def setUp(self):
+        self.manager = make_user('reportmanager', role=User.Role.MANAGER, password='pass')
+        self.factory = RequestFactory()
+        settings.ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
+
+    def test_jobs_report_renders_for_jobs_without_assigned_user(self):
+        dept = make_department('Reports Dept')
+        make_job(dept, self.manager, title='Unassigned Job')
+
+        request = self.factory.get(reverse('core:jobs_report'), {
+            'start_date': '2000-01-01',
+            'end_date': '2100-12-31',
+            'filter_by': 'created_by',
+            'user_id': str(self.manager.pk),
+        })
+        request.user = self.manager
+
+        response = JobsReportView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Unassigned Job')
+        self.assertContains(response, '—')
 
 
 class UserManagementViewTest(TestCase):
