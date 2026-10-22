@@ -4,6 +4,9 @@
 __pycache__/
 *.pyo
 db.sqlite3
+.env
+.env.*
+!.env.example
 
 # Virtual Environments
 venv/

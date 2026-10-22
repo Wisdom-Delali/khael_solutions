@@ -91,6 +91,8 @@ pip install -r requirements.txt
 Create a `.env` file in the project root:
 
 ```env
+DJANGO_DEBUG=True
+DJANGO_SECRET_KEY=replace_with_a_generated_secret
 OPENAI_API_KEY=your_openai_api_key_here
 SMSONLINE_API_KEY=your_smsonline_api_key_here
 ```

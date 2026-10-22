@@ -31,33 +31,31 @@ class Command(BaseCommand):
         self.create_payments()
         self.create_alerts()
         self.stdout.write(self.style.SUCCESS('\n  Dummy data loaded successfully!\n'))
-        self.stdout.write('   Superuser login  -> username: admin      password: admin123')
-        self.stdout.write('   Manager login    -> username: manager1   password: pass123')
-        self.stdout.write('   Staff logins     -> username: staff1-6   password: pass123\n')
+        self.stdout.write('   Sample accounts have unusable passwords; create a superuser with createsuperuser.\n')
 
     def create_users(self):
         self.stdout.write('  Creating users...')
         self.admin = User.objects.create_superuser(
-            username='admin', password='admin123',
-            first_name='Kwame', last_name='Mensah',
-            email='admin@khaelsolutions.com', role='super_admin',
+            username='admin', password=None,
+            first_name='Demo', last_name='Admin',
+            email='admin@example.com', role='super_admin',
         )
         self.manager1 = User.objects.create_user(
-            username='manager1', password='pass123',
-            first_name='Abena', last_name='Asante',
-            email='abena@khaelsolutions.com', role='manager',
+            username='manager1', password=None,
+            first_name='Demo', last_name='Manager One',
+            email='manager1@example.com', role='manager',
         )
         self.manager2 = User.objects.create_user(
-            username='manager2', password='pass123',
-            first_name='Kofi', last_name='Boateng',
-            email='kofi@khaelsolutions.com', role='manager',
+            username='manager2', password=None,
+            first_name='Demo', last_name='Manager Two',
+            email='manager2@example.com', role='manager',
         )
-        self.staff1 = User.objects.create_user(username='staff1', password='pass123', first_name='Ama',    last_name='Owusu',    email='ama@khaelsolutions.com',    role='staff')
-        self.staff2 = User.objects.create_user(username='staff2', password='pass123', first_name='Yaw',    last_name='Darko',    email='yaw@khaelsolutions.com',    role='staff')
-        self.staff3 = User.objects.create_user(username='staff3', password='pass123', first_name='Akosua', last_name='Frimpong', email='akosua@khaelsolutions.com', role='staff')
-        self.staff4 = User.objects.create_user(username='staff4', password='pass123', first_name='Kojo',   last_name='Amponsah', email='kojo@khaelsolutions.com',   role='staff')
-        self.staff5 = User.objects.create_user(username='staff5', password='pass123', first_name='Efua',   last_name='Mensah',   email='efua@khaelsolutions.com',   role='staff')
-        self.staff6 = User.objects.create_user(username='staff6', password='pass123', first_name='Nana',   last_name='Agyei',    email='nana@khaelsolutions.com',   role='staff')
+        self.staff1 = User.objects.create_user(username='staff1', password=None, first_name='Demo', last_name='Staff One', email='staff1@example.com', role='staff')
+        self.staff2 = User.objects.create_user(username='staff2', password=None, first_name='Demo', last_name='Staff Two', email='staff2@example.com', role='staff')
+        self.staff3 = User.objects.create_user(username='staff3', password=None, first_name='Demo', last_name='Staff Three', email='staff3@example.com', role='staff')
+        self.staff4 = User.objects.create_user(username='staff4', password=None, first_name='Demo', last_name='Staff Four', email='staff4@example.com', role='staff')
+        self.staff5 = User.objects.create_user(username='staff5', password=None, first_name='Demo', last_name='Staff Five', email='staff5@example.com', role='staff')
+        self.staff6 = User.objects.create_user(username='staff6', password=None, first_name='Demo', last_name='Staff Six', email='staff6@example.com', role='staff')
 
     def create_departments(self):
         self.stdout.write('  Creating departments...')
@@ -122,18 +120,18 @@ class Command(BaseCommand):
         self.stdout.write('  Creating clients...')
         # One Client record per unique phone number across all jobs
         client_data = [
-            ('0244123456', 'GoldLink Ventures Ltd'),
-            ('0302123789', 'UPSA Events Committee'),
-            ('0201987654', 'Accra Food Festival Org.'),
-            ('0303456789', 'Tema Port Authority'),
-            ('0244765432', 'KBH Private Hospital'),
-            ('0322098765', 'Kumasi Technical University'),
-            ('0302876543', 'Devtraco Properties'),
-            ('0302611000', 'Stanbic Bank Ghana'),
-            ('0302789012', 'Melcom Ghana Ltd'),
-            ('0302681000', 'Ecobank Ghana'),
-            ('0244334455', 'Kasapreko Company Ltd'),
-            ('0244300000', 'MTN Ghana'),
+            ('0000000001', 'Demo Client 01'),
+            ('0000000002', 'Demo Client 02'),
+            ('0000000003', 'Demo Client 03'),
+            ('0000000004', 'Demo Client 04'),
+            ('0000000005', 'Demo Client 05'),
+            ('0000000006', 'Demo Client 06'),
+            ('0000000007', 'Demo Client 07'),
+            ('0000000008', 'Demo Client 08'),
+            ('0000000009', 'Demo Client 09'),
+            ('0000000010', 'Demo Client 10'),
+            ('0000000011', 'Demo Client 11'),
+            ('0000000012', 'Demo Client 12'),
         ]
         for phone, name in client_data:
             Client.objects.create(phone=phone, name=name)
@@ -142,21 +140,21 @@ class Command(BaseCommand):
         self.stdout.write('  Creating jobs...')
         today = timezone.now().date()
 
-        self.job1  = Job.objects.create(title='Business Cards — GoldLink Ventures',      department=self.dept_printing,   service_type='printing',   assigned_to=self.staff1, created_by=self.manager1, client_name='GoldLink Ventures Ltd',      client_contact='0244123456', status='completed',   priority='high',   price=Decimal('350.00'),  start_date=today-timedelta(14), due_date=today-timedelta(10), completed_at=timezone.now()-timedelta(11), description='500 double-sided business cards for GoldLink Ventures. Glossy finish, full colour.')
-        self.job2  = Job.objects.create(title='Event Banner — UPSA Graduation 2025',     department=self.dept_printing,   service_type='printing',   assigned_to=self.staff2, created_by=self.staff1,   client_name='UPSA Events Committee',      client_contact='0302123789', status='in_progress', priority='urgent', price=Decimal('800.00'),  start_date=today-timedelta(3),  due_date=today+timedelta(2),  description='4 large-format vinyl banners (3m x 2m) for UPSA 2025 graduation ceremony.')
-        self.job3  = Job.objects.create(title='Flyer Printing — Accra Food Festival',    department=self.dept_printing,   service_type='printing',   assigned_to=self.staff1, created_by=self.manager1, client_name='Accra Food Festival Org.',   client_contact='0201987654', status='pending',     priority='medium', price=Decimal('420.00'),  start_date=today,               due_date=today+timedelta(5),  description='1000 A5 full-colour flyers. Double-sided printing.')
-        self.job4  = Job.objects.create(title='Laminated ID Cards — Tema Port Authority',department=self.dept_printing,   service_type='printing',   assigned_to=self.staff2, created_by=self.manager1, client_name='Tema Port Authority',        client_contact='0303456789', status='on_hold',     priority='low',    price=Decimal('560.00'),  start_date=today-timedelta(7),  due_date=today-timedelta(2),  description='200 laminated staff ID cards. Client yet to supply full staff list and photos.')
-        self.job5  = Job.objects.create(title='Brochure Design & Print — KBH Hospital',  department=self.dept_printing,   service_type='printing',   assigned_to=self.staff1, created_by=self.staff2,   client_name='KBH Private Hospital',       client_contact='0244765432', status='cancelled',   priority='medium', price=Decimal('670.00'),  start_date=today-timedelta(20), due_date=today-timedelta(15), description='Tri-fold brochures for hospital services. Cancelled — client changed vendor.')
-        self.job6  = Job.objects.create(title='LAN Setup — Kumasi Polytechnic Lab',      department=self.dept_network,    service_type='network_it', assigned_to=self.staff3, created_by=self.manager2, client_name='Kumasi Technical University', client_contact='0322098765', status='completed',   priority='high',   price=Decimal('2200.00'), start_date=today-timedelta(21), due_date=today-timedelta(14), completed_at=timezone.now()-timedelta(15), description='Full LAN installation for 30-node computer lab.')
-        self.job7  = Job.objects.create(title='WiFi Configuration — Devtraco Estate',    department=self.dept_network,    service_type='network_it', assigned_to=self.staff4, created_by=self.staff3,   client_name='Devtraco Properties',        client_contact='0302876543', status='in_progress', priority='high',   price=Decimal('1500.00'), start_date=today-timedelta(4),  due_date=today+timedelta(3),  description='WiFi access point installation for 3-block residential estate.')
-        self.job8  = Job.objects.create(title='Network Audit — Stanbic Bank Branch',     department=self.dept_network,    service_type='network_it', assigned_to=self.staff3, created_by=self.manager2, client_name='Stanbic Bank Ghana',         client_contact='0302611000', status='pending',     priority='urgent', price=Decimal('3500.00'), start_date=today+timedelta(1),  due_date=today+timedelta(6),  description='Comprehensive network security audit for Osu branch.')
-        self.job9  = Job.objects.create(title='CCTV Network Integration — Melcom Store', department=self.dept_network,    service_type='network_it', assigned_to=self.staff4, created_by=self.manager2, client_name='Melcom Ghana Ltd',           client_contact='0302789012', status='pending',     priority='medium', price=Decimal('1800.00'), start_date=today-timedelta(1),  due_date=today-timedelta(1),  description='Connect 16 CCTV cameras to central NVR system. Spintex Road branch.')
-        self.job10 = Job.objects.create(title='Corporate Photography — Ecobank Ghana',   department=self.dept_multimedia, service_type='multimedia', assigned_to=self.staff5, created_by=self.manager1, client_name='Ecobank Ghana',              client_contact='0302681000', status='completed',   priority='high',   price=Decimal('1200.00'), start_date=today-timedelta(10), due_date=today-timedelta(7),  completed_at=timezone.now()-timedelta(8), description='Executive headshots and team photography for 25 staff members.')
-        self.job11 = Job.objects.create(title='Product Video — Kasapreko Company',       department=self.dept_multimedia, service_type='multimedia', assigned_to=self.staff6, created_by=self.staff5,   client_name='Kasapreko Company Ltd',      client_contact='0244334455', status='in_progress', priority='high',   price=Decimal('2500.00'), start_date=today-timedelta(5),  due_date=today+timedelta(4),  description='60-second promotional product video. Includes post-production editing.')
-        self.job12 = Job.objects.create(title='Graphic Design — MTN Ghana Campaign',     department=self.dept_multimedia, service_type='multimedia', assigned_to=self.staff5, created_by=self.manager1, client_name='MTN Ghana',                  client_contact='0244300000', status='pending',     priority='urgent', price=Decimal('1800.00'), start_date=today,               due_date=today+timedelta(3),  description='Digital billboard and social media assets for Q2 campaign. 12 design variants.')
+        self.job1  = Job.objects.create(title='Business Cards — Demo Client 01', department=self.dept_printing, service_type='printing', assigned_to=self.staff1, created_by=self.manager1, client_name='Demo Client 01', client_contact='0000000001', status='completed', priority='high', price=Decimal('350.00'), start_date=today-timedelta(14), due_date=today-timedelta(10), completed_at=timezone.now()-timedelta(11), description='500 double-sided business cards. Glossy finish, full colour.')
+        self.job2  = Job.objects.create(title='Event Banner — Demo Client 02', department=self.dept_printing, service_type='printing', assigned_to=self.staff2, created_by=self.staff1, client_name='Demo Client 02', client_contact='0000000002', status='in_progress', priority='urgent', price=Decimal('800.00'), start_date=today-timedelta(3), due_date=today+timedelta(2), description='4 large-format vinyl banners (3m x 2m) for a graduation ceremony.')
+        self.job3  = Job.objects.create(title='Flyer Printing — Demo Client 03', department=self.dept_printing, service_type='printing', assigned_to=self.staff1, created_by=self.manager1, client_name='Demo Client 03', client_contact='0000000003', status='pending', priority='medium', price=Decimal('420.00'), start_date=today, due_date=today+timedelta(5), description='1000 A5 full-colour flyers. Double-sided printing.')
+        self.job4  = Job.objects.create(title='Laminated ID Cards — Demo Client 04', department=self.dept_printing, service_type='printing', assigned_to=self.staff2, created_by=self.manager1, client_name='Demo Client 04', client_contact='0000000004', status='on_hold', priority='low', price=Decimal('560.00'), start_date=today-timedelta(7), due_date=today-timedelta(2), description='200 laminated staff ID cards. Client yet to supply staff list and photos.')
+        self.job5  = Job.objects.create(title='Brochure Design & Print — Demo Client 05', department=self.dept_printing, service_type='printing', assigned_to=self.staff1, created_by=self.staff2, client_name='Demo Client 05', client_contact='0000000005', status='cancelled', priority='medium', price=Decimal('670.00'), start_date=today-timedelta(20), due_date=today-timedelta(15), description='Tri-fold brochures for client services. Cancelled after a vendor change.')
+        self.job6  = Job.objects.create(title='LAN Setup — Demo Client 06', department=self.dept_network, service_type='network_it', assigned_to=self.staff3, created_by=self.manager2, client_name='Demo Client 06', client_contact='0000000006', status='completed', priority='high', price=Decimal('2200.00'), start_date=today-timedelta(21), due_date=today-timedelta(14), completed_at=timezone.now()-timedelta(15), description='Full LAN installation for a 30-node computer lab.')
+        self.job7  = Job.objects.create(title='WiFi Configuration — Demo Client 07', department=self.dept_network, service_type='network_it', assigned_to=self.staff4, created_by=self.staff3, client_name='Demo Client 07', client_contact='0000000007', status='in_progress', priority='high', price=Decimal('1500.00'), start_date=today-timedelta(4), due_date=today+timedelta(3), description='WiFi access point installation for a three-block residential estate.')
+        self.job8  = Job.objects.create(title='Network Audit — Demo Client 08', department=self.dept_network, service_type='network_it', assigned_to=self.staff3, created_by=self.manager2, client_name='Demo Client 08', client_contact='0000000008', status='pending', priority='urgent', price=Decimal('3500.00'), start_date=today+timedelta(1), due_date=today+timedelta(6), description='Comprehensive network security audit for a branch office.')
+        self.job9  = Job.objects.create(title='CCTV Network Integration — Demo Client 09', department=self.dept_network, service_type='network_it', assigned_to=self.staff4, created_by=self.manager2, client_name='Demo Client 09', client_contact='0000000009', status='pending', priority='medium', price=Decimal('1800.00'), start_date=today-timedelta(1), due_date=today-timedelta(1), description='Connect 16 CCTV cameras to a central NVR system.')
+        self.job10 = Job.objects.create(title='Corporate Photography — Demo Client 10', department=self.dept_multimedia, service_type='multimedia', assigned_to=self.staff5, created_by=self.manager1, client_name='Demo Client 10', client_contact='0000000010', status='completed', priority='high', price=Decimal('1200.00'), start_date=today-timedelta(10), due_date=today-timedelta(7), completed_at=timezone.now()-timedelta(8), description='Executive headshots and team photography for 25 staff members.')
+        self.job11 = Job.objects.create(title='Product Video — Demo Client 11', department=self.dept_multimedia, service_type='multimedia', assigned_to=self.staff6, created_by=self.staff5, client_name='Demo Client 11', client_contact='0000000011', status='in_progress', priority='high', price=Decimal('2500.00'), start_date=today-timedelta(5), due_date=today+timedelta(4), description='60-second promotional product video with post-production editing.')
+        self.job12 = Job.objects.create(title='Graphic Design — Demo Client 12', department=self.dept_multimedia, service_type='multimedia', assigned_to=self.staff5, created_by=self.manager1, client_name='Demo Client 12', client_contact='0000000012', status='pending', priority='urgent', price=Decimal('1800.00'), start_date=today, due_date=today+timedelta(3), description='Digital billboard and social media assets with 12 design variants.')
 
         self.stdout.write('  Creating job timeline updates...')
-        JobUpdate.objects.create(job=self.job1,  updated_by=self.manager1, status='pending',     comment='Job created and assigned to Ama.')
+        JobUpdate.objects.create(job=self.job1,  updated_by=self.manager1, status='pending',     comment='Job created and assigned to a staff member.')
         JobUpdate.objects.create(job=self.job1,  updated_by=self.staff1,   status='in_progress', comment='Design approved by client. Printing started.')
         JobUpdate.objects.create(job=self.job1,  updated_by=self.staff1,   status='completed',   comment='500 cards printed and delivered to client.')
         JobUpdate.objects.create(job=self.job2,  updated_by=self.staff1,   status='pending',     comment='Job registered. Awaiting design files from client.')
@@ -167,11 +165,11 @@ class Command(BaseCommand):
         JobUpdate.objects.create(job=self.job5,  updated_by=self.manager1, status='cancelled',   comment='Client cancelled — switched to another vendor.')
         JobUpdate.objects.create(job=self.job6,  updated_by=self.manager2, status='pending',     comment='Job created and team assigned.')
         JobUpdate.objects.create(job=self.job6,  updated_by=self.staff3,   status='in_progress', comment='Cabling complete. Switch configuration in progress.')
-        JobUpdate.objects.create(job=self.job6,  updated_by=self.staff3,   status='completed',   comment='All 30 nodes connected and tested. Client signed off.')
+        JobUpdate.objects.create(job=self.job6,  updated_by=self.staff3,   status='completed',   comment='All 30 nodes connected and tested. Client approved the work.')
         JobUpdate.objects.create(job=self.job9,  updated_by=self.manager2, status='pending',     comment='Job registered. Due date already passed — client delayed approval.')
         JobUpdate.objects.create(job=self.job10, updated_by=self.manager1, status='pending',     comment='Job created.')
         JobUpdate.objects.create(job=self.job10, updated_by=self.staff5,   status='in_progress', comment='On-location shoot complete. Studio session scheduled.')
-        JobUpdate.objects.create(job=self.job10, updated_by=self.staff5,   status='completed',   comment='All photos edited and delivered via Google Drive link.')
+        JobUpdate.objects.create(job=self.job10, updated_by=self.staff5,   status='completed',   comment='All photos edited and delivered to the client.')
         JobUpdate.objects.create(job=self.job11, updated_by=self.staff5,   status='pending',     comment='Job registered.')
         JobUpdate.objects.create(job=self.job11, updated_by=self.staff6,   status='in_progress', comment='Filming complete. Post-production editing underway.')
 
@@ -218,9 +216,9 @@ class Command(BaseCommand):
 
     def create_alerts(self):
         self.stdout.write('  Creating alerts...')
-        Alert.objects.create(job=self.job9,  alert_type='overdue_job',      severity='critical', message='Job "CCTV Network Integration — Melcom Store" (#9) is overdue.', resolved=False)
-        Alert.objects.create(job=self.job4,  alert_type='overdue_job',      severity='warning',  message='Job "Laminated ID Cards — Tema Port Authority" (#4) is on hold and past its due date.', resolved=False)
+        Alert.objects.create(job=self.job9,  alert_type='overdue_job',      severity='critical', message='Job "CCTV Network Integration — Demo Client 09" (#9) is overdue.', resolved=False)
+        Alert.objects.create(job=self.job4,  alert_type='overdue_job',      severity='warning',  message='Job "Laminated ID Cards — Demo Client 04" (#4) is on hold and past its due date.', resolved=False)
         Alert.objects.create(resource=self.laminate,   alert_type='low_stock', severity='warning', message='Resource "Lamination Film (A4)" is low: 3 rolls remaining (reorder: 4).', resolved=False)
         Alert.objects.create(resource=self.ink_colour, alert_type='low_stock', severity='warning', message='Resource "Colour Ink Cartridge" is low: 4 units remaining (reorder: 5).', resolved=False)
         Alert.objects.create(job=self.job6,  alert_type='abnormal_expense',  severity='warning',  message='Job "LAN Setup" expenses were approaching quoted price.', resolved=True, resolved_by=self.manager2, resolved_at=timezone.now()-timedelta(14))
-        Alert.objects.create(job=self.job1,  alert_type='overdue_payment',   severity='warning',  message='Job "Business Cards — GoldLink Ventures" was completed 11 days ago. Outstanding: GHS 350.00.', resolved=False)
+        Alert.objects.create(job=self.job1,  alert_type='overdue_payment',   severity='warning',  message='Job "Business Cards — Demo Client 01" was completed 11 days ago. Outstanding: GHS 350.00.', resolved=False)
